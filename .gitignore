@@ -5,4 +5,5 @@
 .settings
 .classpath
 target/
+bin/
 *.class
