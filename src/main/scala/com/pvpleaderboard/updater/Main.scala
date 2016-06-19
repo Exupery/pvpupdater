@@ -1,20 +1,21 @@
 package com.pvpleaderboard.updater
 
-import java.sql.DriverManager
-
 import org.slf4j.{ Logger, LoggerFactory }
 
 object Main {
   private def logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def main(args: Array[String]): Unit = {
+    val start = System.currentTimeMillis() / 1000
     logger.info("Updating PvPLeaderboard DB")
-    // TODO DELME BEGIN
-    val dbUrl = "jdbc:" + sys.env("DATABASE_URL")
-    val db = DriverManager.getConnection(dbUrl)
-    db.close()
-    println(db.isClosed())
-    // TODO DELME END
-    logger.info("PvPLeaderboard DB update complete")
+    // TODO
+    val end = System.currentTimeMillis() / 1000
+    val elapsed = end - start
+    val durationMessage = if (elapsed < 180) {
+      String.format("%s seconds", elapsed.toString())
+    } else {
+      String.format("%s minutes", (elapsed / 60).toString())
+    }
+    logger.info("DB update complete after {}", durationMessage)
   }
 }
