@@ -3,12 +3,12 @@ package com.pvpleaderboard.updater
 import org.slf4j.{ Logger, LoggerFactory }
 
 object Main {
-  private def logger: Logger = LoggerFactory.getLogger(this.getClass)
+  private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis() / 1000
     logger.info("Updating PvPLeaderboard DB")
-    // TODO
+    NonPlayerUpdater.update()
     val end = System.currentTimeMillis() / 1000
     val elapsed = end - start
     val durationMessage = if (elapsed < 180) {
