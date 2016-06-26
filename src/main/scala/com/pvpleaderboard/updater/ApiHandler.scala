@@ -3,6 +3,7 @@ package com.pvpleaderboard.updater
 import java.io.IOException
 
 import scala.io.Source
+import scala.util.Try
 
 import org.slf4j.{ Logger, LoggerFactory }
 
@@ -10,7 +11,8 @@ import org.slf4j.{ Logger, LoggerFactory }
  * Send requests and receive responses to/from the Blizzard API
  */
 class ApiHandler {
-  private val BASE_URI: String = "https://us.api.battle.net/wow/"
+  private val DEFAULT_URI: String = "https://us.api.battle.net/wow/"
+  private val BASE_URI: String = Try(sys.env("BATTLE_NET_API_URI")).getOrElse(DEFAULT_URI)
   private val API_KEY: String = sys.env("BATTLE_NET_API_KEY")
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
