@@ -1,6 +1,7 @@
 package com.pvpleaderboard.updater
 
 import org.slf4j.{ Logger, LoggerFactory }
+import play.api.libs.json.JsValue
 
 /**
  * Updates the non-player data, e.g. achievements, classes, factions,
@@ -17,7 +18,12 @@ object NonPlayerUpdater {
   }
 
   private def importRealms(): Unit = {
-    val response: Option[String] = api.get("realm/status")
+    val response: Option[JsValue] = api.get("realm/status")
+    if (response.isEmpty) {
+      logger.warn("Skipping realms import")
+      return ;
+    }
+
     println(response.get) // TODO DELME
   }
 
