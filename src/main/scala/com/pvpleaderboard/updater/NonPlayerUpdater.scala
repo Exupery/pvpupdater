@@ -18,7 +18,8 @@ object NonPlayerUpdater {
     logger.info("Updating non-player data")
     //    importRealms()
     //    importRaces()
-    importFactions()
+    //    importFactions()
+    importAchievements()
   }
 
   private def importRealms(): Unit = {
@@ -52,6 +53,24 @@ object NonPlayerUpdater {
     println(factions.size) // TODO DELME
   }
 
+  private def importAchievements(): Unit = {
+    val response: Option[JValue] = api.get("data/character/achievements")
+    if (response.isEmpty) {
+      logger.warn("Skipping achievements import")
+      return
+    }
+
+    val achievementGroups: List[AchievementGroup] = response.get.extract[Achievements].achievements
+    val achievements: List[Achievement] = achievementGroups
+      .filter(_.name.contains("Player vs. Player"))
+      .map(_.achievements)
+      .flatten
+    println(achievementGroups.size) // TODO DELME
+    println(achievementGroups.map(_.name)) // TODO DELME
+    println(achievements) // TODO DELME
+    println(achievements.size) // TODO DELME
+  }
+
 }
 
 case class Faction(id: Int, name: String)
@@ -61,3 +80,7 @@ case class Realm(slug: String, name: String, battlegroup: String, timezone: Stri
 
 case class Races(races: List[Race])
 case class Race(id: Int, name: String, side: String)
+
+case class Achievements(achievements: List[AchievementGroup])
+case class AchievementGroup(name: String, achievements: List[Achievement])
+case class Achievement(id: Int, title: String, description: String, icon: String, points: Int)
