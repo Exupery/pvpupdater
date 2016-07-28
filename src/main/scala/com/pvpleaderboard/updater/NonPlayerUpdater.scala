@@ -17,7 +17,8 @@ object NonPlayerUpdater {
   def update(): Unit = {
     logger.info("Updating non-player data")
     //    importRealms()
-    importRaces()
+    //    importRaces()
+    importFactions()
   }
 
   private def importRealms(): Unit = {
@@ -44,10 +45,19 @@ object NonPlayerUpdater {
     println(races.size) // TODO DELME
   }
 
+  private def importFactions(): Unit = {
+    /* Faction data not available via API */
+    val factions: List[Faction] = List(Faction(0, "Alliance"), Faction(1, "Horde"))
+    println(factions) // TODO DELME
+    println(factions.size) // TODO DELME
+  }
+
 }
+
+case class Faction(id: Int, name: String)
 
 case class Realms(realms: List[Realm])
 case class Realm(slug: String, name: String, battlegroup: String, timezone: String, `type`: String)
 
 case class Races(races: List[Race])
-case class Race(id: Integer, name: String, side: String)
+case class Race(id: Int, name: String, side: String)
