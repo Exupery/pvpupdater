@@ -19,7 +19,8 @@ object NonPlayerUpdater {
     //    importRealms()
     //    importRaces()
     //    importFactions()
-    importAchievements()
+    //    importAchievements()
+    importClasses()
   }
 
   private def importRealms(): Unit = {
@@ -71,6 +72,18 @@ object NonPlayerUpdater {
     println(achievements.size) // TODO DELME
   }
 
+  private def importClasses(): Unit = {
+    val response: Option[JValue] = api.get("data/character/classes")
+    if (response.isEmpty) {
+      logger.warn("Skipping classes import")
+      return
+    }
+
+    val classes: List[PlayerClass] = response.get.extract[Classes].classes
+    println(classes) // TODO DELME
+    println(classes.size) // TODO DELME
+  }
+
 }
 
 case class Faction(id: Int, name: String)
@@ -84,3 +97,6 @@ case class Race(id: Int, name: String, side: String)
 case class Achievements(achievements: List[AchievementGroup])
 case class AchievementGroup(name: String, achievements: List[Achievement])
 case class Achievement(id: Int, title: String, description: String, icon: String, points: Int)
+
+case class Classes(classes: List[PlayerClass])
+case class PlayerClass(id: Int, name: String)
