@@ -20,8 +20,8 @@ object NonPlayerUpdater {
     //    importRaces()
     //    importFactions()
     //    importAchievements()
-    //    importClasses()
-    importTalentsAndSpecs()
+    val classes: Map[String, PlayerClass] = importClasses()
+    importTalentsAndSpecs(classes)
   }
 
   private def importRealms(): Unit = {
@@ -72,35 +72,43 @@ object NonPlayerUpdater {
     println(achievements.size) // TODO DELME
   }
 
-  private def importClasses(): Unit = {
+  private def slugify(str: String): String = {
+    return str.toLowerCase().replaceAll(" ", "-")
+  }
+
+  private def importClasses(): Map[String, PlayerClass] = {
     val response: Option[JValue] = api.get("data/character/classes")
     if (response.isEmpty) {
       logger.warn("Skipping classes import")
-      return
+      return Map.empty
     }
 
     val classes: List[PlayerClass] = response.get.extract[Classes].classes
     println(classes) // TODO DELME
     println(classes.size) // TODO DELME
+    return classes.map(c => slugify(c.name) -> c).toMap
   }
 
-  private def importTalentsAndSpecs(): Unit = {
+  private def importTalentsAndSpecs(classes: Map[String, PlayerClass]): Unit = {
     val response: Option[JValue] = api.get("data/talents")
     if (response.isEmpty) {
       logger.warn("Skipping talent and spec import")
       return
     }
 
-    response.get.children.foreach { e =>
-      val talentsAndSpecs = e.extract[TalentsAndSpecs]
-      println(talentsAndSpecs.`class`) // TODO DELME
-      val talents = talentsAndSpecs.talents.flatten.flatten
-      println(talents.size) // TODO DELME
-      //      talents.foreach { x => println(x.spell.id) }  // TODO DELME
-      val specs = talentsAndSpecs.specs
-      println(specs.size) // TODO DELME
-      specs.foreach { x => println(x.name) } // TODO DELME
+    val talentsAndSpecs: List[TalentsAndSpecs] =
+      response.get.children.map(_.extract[TalentsAndSpecs])
+    println(talentsAndSpecs.size) // TODO DELME
+    if (classes.size != talentsAndSpecs.size) {
+      logger.error("Found {} classes, expected {} for talent and spec import, skipping",
+        classes.size, talentsAndSpecs.size)
+      return
     }
+    talentsAndSpecs.foreach { x => println(x.`class`) }
+    val talents: List[Talent] = talentsAndSpecs.head.talents.flatten.flatten
+    println(talents.size) // TODO DELME
+    val specs: List[Spec] = talentsAndSpecs.head.specs
+    println(specs.size) // TODO DELME
   }
 
 }
