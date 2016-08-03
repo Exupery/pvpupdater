@@ -20,7 +20,8 @@ object NonPlayerUpdater {
     //    importRaces()
     //    importFactions()
     //    importAchievements()
-    importClasses()
+    //    importClasses()
+    importTalentsAndSpecs()
   }
 
   private def importRealms(): Unit = {
@@ -68,7 +69,6 @@ object NonPlayerUpdater {
       .flatten
     println(achievementGroups.size) // TODO DELME
     println(achievementGroups.map(_.name)) // TODO DELME
-    println(achievements) // TODO DELME
     println(achievements.size) // TODO DELME
   }
 
@@ -82,6 +82,25 @@ object NonPlayerUpdater {
     val classes: List[PlayerClass] = response.get.extract[Classes].classes
     println(classes) // TODO DELME
     println(classes.size) // TODO DELME
+  }
+
+  private def importTalentsAndSpecs(): Unit = {
+    val response: Option[JValue] = api.get("data/talents")
+    if (response.isEmpty) {
+      logger.warn("Skipping talent and spec import")
+      return
+    }
+
+    response.get.children.foreach { e =>
+      val talentsAndSpecs = e.extract[TalentsAndSpecs]
+      println(talentsAndSpecs.`class`) // TODO DELME
+      val talents = talentsAndSpecs.talents.flatten.flatten
+      println(talents.size) // TODO DELME
+      //      talents.foreach { x => println(x.spell.id) }  // TODO DELME
+      val specs = talentsAndSpecs.specs
+      println(specs.size) // TODO DELME
+      specs.foreach { x => println(x.name) } // TODO DELME
+    }
   }
 
 }
@@ -100,3 +119,8 @@ case class Achievement(id: Int, title: String, description: String, icon: String
 
 case class Classes(classes: List[PlayerClass])
 case class PlayerClass(id: Int, name: String)
+
+case class TalentsAndSpecs(talents: List[List[List[Talent]]], `class`: String, specs: List[Spec])
+case class Talent(tier: Int, column: Int, spell: TalentSpell)
+case class TalentSpell(id: Int, name: String, description: String, icon: String)
+case class Spec(name: String, role: String, description: String, backgroundImage: String, icon: String)
