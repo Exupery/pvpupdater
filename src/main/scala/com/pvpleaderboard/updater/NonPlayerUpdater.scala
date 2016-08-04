@@ -99,17 +99,16 @@ object NonPlayerUpdater {
 
     val talentsAndSpecs: List[TalentsAndSpecs] =
       response.get.children.map(_.extract[TalentsAndSpecs])
-    println(talentsAndSpecs.size) // TODO DELME
     if (classes.size != talentsAndSpecs.size) {
       logger.error("Found {} classes, expected {} for talent and spec import, skipping",
         classes.size, talentsAndSpecs.size)
       return
     }
     talentsAndSpecs.foreach { x => println(x.`class`) }
-    val talents: List[Talent] = talentsAndSpecs.head.talents.flatten.flatten
-    println(talents.size) // TODO DELME
-    val specs: List[Spec] = talentsAndSpecs.head.specs
-    println(specs.size) // TODO DELME
+    talentsAndSpecs.foreach { x =>
+      println(x.`class`)
+      println(x.talents.flatten.flatten.size)
+    }
   }
 
   private def importPvPTalents(): Unit = {
