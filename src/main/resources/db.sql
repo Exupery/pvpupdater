@@ -109,19 +109,6 @@ CREATE TABLE bracket_3v3 (
 CREATE INDEX ON bracket_3v3 (rating);
 CREATE INDEX ON bracket_3v3 (last_update DESC);
 
-CREATE TABLE bracket_5v5 (
-  ranking INTEGER PRIMARY KEY,
-  player_id INTEGER NOT NULL REFERENCES players (id),
-  rating SMALLINT NOT NULL,
-  season_wins SMALLINT,
-  season_losses SMALLINT,
-  last_update TIMESTAMP DEFAULT NOW(),
-  UNIQUE (player_id)
-);
-
-CREATE INDEX ON bracket_5v5 (rating);
-CREATE INDEX ON bracket_5v5 (last_update DESC);
-
 CREATE TABLE bracket_rbg (
   ranking INTEGER PRIMARY KEY,
   player_id INTEGER NOT NULL REFERENCES players (id),
@@ -185,7 +172,6 @@ CREATE TABLE players_stats (
 CREATE VIEW player_ids_all_brackets AS
   SELECT player_id FROM bracket_2v2 UNION
   SELECT player_id FROM bracket_3v3 UNION
-  SELECT player_id FROM bracket_5v5 UNION
   SELECT player_id FROM bracket_rbg;
 
 CREATE TABLE items (
