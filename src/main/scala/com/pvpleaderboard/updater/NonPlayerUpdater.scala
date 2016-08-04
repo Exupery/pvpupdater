@@ -51,7 +51,7 @@ object NonPlayerUpdater {
 
   private def importFactions(): Unit = {
     /* Faction data not available via API */
-    val factions: List[Faction] = List(Faction(0, "Alliance"), Faction(1, "Horde"))
+    val factions: List[Faction] = NonApiData.factions
     println(factions) // TODO DELME
     println(factions.size) // TODO DELME
   }
