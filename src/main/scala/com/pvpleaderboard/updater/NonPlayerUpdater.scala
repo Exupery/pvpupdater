@@ -16,12 +16,13 @@ object NonPlayerUpdater {
 
   def update(): Unit = {
     logger.info("Updating non-player data")
-    //    importRealms()
-    //    importRaces()
-    //    importFactions()
-    //    importAchievements()
+    importRealms()
+    importRaces()
+    importFactions()
+    importAchievements()
     val classes: Map[String, PlayerClass] = importClasses()
     importTalentsAndSpecs(classes)
+    importPvPTalents()
   }
 
   private def importRealms(): Unit = {
@@ -109,6 +110,10 @@ object NonPlayerUpdater {
     println(talents.size) // TODO DELME
     val specs: List[Spec] = talentsAndSpecs.head.specs
     println(specs.size) // TODO DELME
+  }
+
+  private def importPvPTalents(): Unit = {
+    // TODO PVP TALENTS NOT YET AVAILABLE VIA BATTLE.NET API
   }
 
 }
