@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/Exupery/pvpupdater.svg)](https://travis-ci.org/Exupery/pvpupdater)
 # PvPUpdater
 
 Updates the [World of Warcraft](http://us.battle.net/wow/en/) PvP leaderboard data consumed by [pvpleaderboard](https://github.com/Exupery/pvpleaderboard).
