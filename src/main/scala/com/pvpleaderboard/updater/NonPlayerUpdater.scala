@@ -134,6 +134,7 @@ case class Classes(classes: List[PlayerClass])
 case class PlayerClass(id: Int, name: String)
 
 case class TalentsAndSpecs(talents: List[List[List[Talent]]], `class`: String, specs: List[Spec])
-case class Talent(tier: Int, column: Int, spell: TalentSpell)
+case class Talent(tier: Int, column: Int, spell: TalentSpell, spec: TalentSpec)
 case class TalentSpell(id: Int, name: String, description: String, icon: String)
+case class TalentSpec(name: Option[String])
 case class Spec(name: String, role: String, description: String, backgroundImage: String, icon: String)
