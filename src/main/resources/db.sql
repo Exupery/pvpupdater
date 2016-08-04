@@ -40,6 +40,7 @@ CREATE TABLE specs (
 CREATE TABLE talents (
   id INTEGER PRIMARY KEY,
   class_id INTEGER NOT NULL REFERENCES classes (id),
+  spec_id INTEGER DEFAULT NULL REFERENCES specs (id),
   name VARCHAR(128) NOT NULL,
   description VARCHAR(1024),
   icon VARCHAR(128),
