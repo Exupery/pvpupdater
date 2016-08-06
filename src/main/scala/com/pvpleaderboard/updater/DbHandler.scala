@@ -40,6 +40,9 @@ class DbHandler {
     }
   }
 
+  /**
+   * Inserts rows into {@code table}, doing nothing on conflict.
+   */
   def insertDoNothing(table: String, columns: List[String], values: List[List[Any]]): Int = {
     if (columns.isEmpty || values.isEmpty) {
       return 0
