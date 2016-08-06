@@ -12,17 +12,26 @@ object NonPlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val api: ApiHandler = new ApiHandler()
+  private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
 
   def update(): Unit = {
     logger.info("Updating non-player data")
-    importRealms()
-    importRaces()
     importFactions()
-    importAchievements()
-    val classes: Map[String, PlayerClass] = importClasses()
-    importTalentsAndSpecs(classes)
-    importPvPTalents()
+    //    importRealms()
+    //    importRaces()
+    //    importAchievements()
+    //    val classes: Map[String, PlayerClass] = importClasses()
+    //    importTalentsAndSpecs(classes)
+    //    importPvPTalents()
+  }
+
+  private def importFactions(): Unit = {
+    val factions: List[Faction] = NonApiData.factions
+    val asRows = factions.foldLeft(List[List[Any]]()) { (l, f) =>
+      l.:+(List(f.id, f.name))
+    }
+    db.insertDoNothing("factions", List("id", "name"), asRows)
   }
 
   private def importRealms(): Unit = {
@@ -47,13 +56,6 @@ object NonPlayerUpdater {
     val races: List[Race] = response.get.extract[Races].races
     println(races) // TODO DELME
     println(races.size) // TODO DELME
-  }
-
-  private def importFactions(): Unit = {
-    /* Faction data not available via API */
-    val factions: List[Faction] = NonApiData.factions
-    println(factions) // TODO DELME
-    println(factions.size) // TODO DELME
   }
 
   private def importAchievements(): Unit = {
