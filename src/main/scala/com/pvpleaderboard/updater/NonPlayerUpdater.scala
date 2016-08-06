@@ -18,20 +18,20 @@ object NonPlayerUpdater {
   def update(): Unit = {
     logger.info("Updating non-player data")
     importFactions()
-    //    importRealms()
-    //    importRaces()
-    //    importAchievements()
+    importRealms()
+    importRaces()
+    importAchievements()
     //    val classes: Map[String, PlayerClass] = importClasses()
     //    importTalentsAndSpecs(classes)
-    //    importPvPTalents()
+    importPvPTalents()
   }
 
   private def importFactions(): Unit = {
     val factions: List[Faction] = NonApiData.factions
-    val asRows = factions.foldLeft(List[List[Any]]()) { (l, f) =>
+    val rows = factions.foldLeft(List[List[Any]]()) { (l, f) =>
       l.:+(List(f.id, f.name))
     }
-    db.insertDoNothing("factions", List("id", "name"), asRows)
+    db.insertDoNothing("factions", List("id", "name"), rows)
   }
 
   private def importRealms(): Unit = {
@@ -42,8 +42,11 @@ object NonPlayerUpdater {
     }
 
     val realms: List[Realm] = response.get.extract[Realms].realms
-    println(realms) // TODO DELME
-    println(realms.size) // TODO DELME
+    val columns: List[String] = List("slug", "name", "battlegroup", "timezone", "type")
+    val rows = realms.foldLeft(List[List[Any]]()) { (l, r) =>
+      l.:+(List(r.slug, r.name, r.battlegroup, r.timezone, r.`type`))
+    }
+    db.insertDoNothing("realms", columns, rows)
   }
 
   private def importRaces(): Unit = {
@@ -54,8 +57,11 @@ object NonPlayerUpdater {
     }
 
     val races: List[Race] = response.get.extract[Races].races
-    println(races) // TODO DELME
-    println(races.size) // TODO DELME
+    val columns: List[String] = List("id", "name", "side")
+    val rows = races.foldLeft(List[List[Any]]()) { (l, r) =>
+      l.:+(List(r.id, r.name, r.side))
+    }
+    db.insertDoNothing("races", columns, rows)
   }
 
   private def importAchievements(): Unit = {
@@ -73,6 +79,12 @@ object NonPlayerUpdater {
     println(achievementGroups.size) // TODO DELME
     println(achievementGroups.map(_.name)) // TODO DELME
     println(achievements.size) // TODO DELME
+    // TODO NEED ARENA ACHIEVEMENTS NOT TOP LEVEL PVP
+    //    val columns: List[String] = List("id", "name", "description", "icon", "points")
+    //    val rows = achievements.foldLeft(List[List[Any]]()) { (l, a) =>
+    //      l.:+(List(a.id, a.title, a.description, a.icon, a.points))
+    //    }
+    //    db.insertDoNothing("achievements", columns, rows)
   }
 
   private def slugify(str: String): String = {
