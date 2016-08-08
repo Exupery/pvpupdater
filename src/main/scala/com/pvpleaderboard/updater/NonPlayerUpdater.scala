@@ -74,17 +74,18 @@ object NonPlayerUpdater {
     val achievementGroups: List[AchievementGroup] = response.get.extract[Achievements].achievements
     val achievements: List[Achievement] = achievementGroups
       .filter(_.name.contains("Player vs. Player"))
+      .map(_.categories)
+      .flatten
+      .filter(c => {
+        c.name.equalsIgnoreCase("Rated Battleground") || c.name.equalsIgnoreCase("Arena")
+      })
       .map(_.achievements)
       .flatten
-    println(achievementGroups.size) // TODO DELME
-    println(achievementGroups.map(_.name)) // TODO DELME
-    println(achievements.size) // TODO DELME
-    // TODO NEED ARENA ACHIEVEMENTS NOT TOP LEVEL PVP
-    //    val columns: List[String] = List("id", "name", "description", "icon", "points")
-    //    val rows = achievements.foldLeft(List[List[Any]]()) { (l, a) =>
-    //      l.:+(List(a.id, a.title, a.description, a.icon, a.points))
-    //    }
-    //    db.insertDoNothing("achievements", columns, rows)
+    val columns: List[String] = List("id", "name", "description", "icon", "points")
+    val rows = achievements.foldLeft(List[List[Any]]()) { (l, a) =>
+      l.:+(List(a.id, a.title, a.description, a.icon, a.points))
+    }
+    db.insertDoNothing("achievements", columns, rows)
   }
 
   private def slugify(str: String): String = {
@@ -140,7 +141,8 @@ case class Races(races: List[Race])
 case class Race(id: Int, name: String, side: String)
 
 case class Achievements(achievements: List[AchievementGroup])
-case class AchievementGroup(name: String, achievements: List[Achievement])
+case class AchievementGroup(name: String, categories: List[AchievementCategory])
+case class AchievementCategory(name: String, achievements: List[Achievement])
 case class Achievement(id: Int, title: String, description: String, icon: String, points: Int)
 
 case class Classes(classes: List[PlayerClass])
