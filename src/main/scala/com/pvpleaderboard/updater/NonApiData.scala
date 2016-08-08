@@ -32,7 +32,7 @@ object NonApiData {
     "priestHoly" -> 257,
     "priestShadow" -> 258,
     "rogueAssassination" -> 259,
-    "rogueCombat" -> 260,
+    "rogueOutlaw" -> 260,
     "rogueSubtlety" -> 261,
     "shamanElemental" -> 262,
     "shamanEnhancement" -> 263,
