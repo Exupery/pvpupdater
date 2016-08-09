@@ -21,7 +21,7 @@ object NonPlayerUpdater {
     importRealms()
     importRaces()
     importAchievements()
-    //    val classes: Map[String, PlayerClass] = importClasses()
+    val classes: Map[String, PlayerClass] = importClasses()
     //    importTalentsAndSpecs(classes)
     importPvPTalents()
   }
@@ -100,8 +100,11 @@ object NonPlayerUpdater {
     }
 
     val classes: List[PlayerClass] = response.get.extract[Classes].classes
-    println(classes) // TODO DELME
-    println(classes.size) // TODO DELME
+    val columns: List[String] = List("id", "name")
+    val rows = classes.foldLeft(List[List[Any]]()) { (l, c) =>
+      l.:+(List(c.id, c.name))
+    }
+    db.insertDoNothing("classes", columns, rows)
     return classes.map(c => slugify(c.name) -> c).toMap
   }
 
