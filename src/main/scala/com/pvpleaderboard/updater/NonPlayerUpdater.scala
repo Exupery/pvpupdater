@@ -22,7 +22,7 @@ object NonPlayerUpdater {
     importRaces()
     importAchievements()
     val classes: Map[String, PlayerClass] = importClasses()
-    //    importTalentsAndSpecs(classes)
+    importTalentsAndSpecs(classes)
     importPvPTalents()
   }
 
@@ -122,11 +122,40 @@ object NonPlayerUpdater {
         classes.size, talentsAndSpecs.size)
       return
     }
-    talentsAndSpecs.foreach { x => println(x.`class`) }
-    talentsAndSpecs.foreach { x =>
-      println(x.`class`)
-      println(x.talents.flatten.flatten.size)
-    }
+
+    insertSpecs(talentsAndSpecs.map(tas => tas.`class` -> tas.specs).toMap, classes)
+    //    talentsAndSpecs.foreach { x => // TODO DELME
+    //      println(x.`class`)
+    //      println(x.talents.flatten.flatten.size)
+    //    }
+  }
+
+  private def insertSpecs(specs: Map[String, List[Spec]],
+    classes: Map[String, PlayerClass]): Unit = {
+
+    val columns: List[String] = List(
+      "id",
+      "class_id",
+      "name",
+      "role",
+      "description",
+      "background_image",
+      "icon")
+    val rows = specs.foldLeft(List[List[List[Any]]]()) { (l, s) =>
+      val className: String = s._1
+      val classId: Int = classes(className).id
+      l.:+(s._2.foldLeft(List[List[Any]]()) { (list, spec) =>
+        list.:+(List(
+          NonApiData.specIds(className + spec.name),
+          classId,
+          spec.name,
+          spec.role,
+          spec.description,
+          spec.backgroundImage,
+          spec.icon))
+      })
+    }.flatten
+    db.insertDoNothing("specs", columns, rows)
   }
 
   private def importPvPTalents(): Unit = {
