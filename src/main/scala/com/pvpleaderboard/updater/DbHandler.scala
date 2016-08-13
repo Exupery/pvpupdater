@@ -24,7 +24,12 @@ class DbHandler {
       var idx: Int = 1
       rows.foreach { row =>
         row.foreach { value =>
-          stmt.setObject(idx, value)
+          val v = if (value.isInstanceOf[Option[Any]]) {
+            value.asInstanceOf[Option[Any]].getOrElse(null)
+          } else {
+            value
+          }
+          stmt.setObject(idx, v)
           idx += 1
         }
       }
