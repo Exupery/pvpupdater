@@ -63,6 +63,7 @@ CREATE TABLE players (
   gender SMALLINT,
   achievement_points INTEGER,
   honorable_kills INTEGER,
+  thumbnail VARCHAR(128),
   last_update TIMESTAMP NOT NULL DEFAULT NOW(),
   UNIQUE (name, realm_slug)
 );
