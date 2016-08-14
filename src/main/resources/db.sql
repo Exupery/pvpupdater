@@ -51,17 +51,6 @@ CREATE TABLE talents (
 CREATE INDEX ON talents (tier, col);
 CREATE INDEX ON talents (class_id, name);
 
-CREATE TABLE glyphs (
-  id INTEGER PRIMARY KEY,
-  class_id INTEGER NOT NULL REFERENCES classes (id),
-  name VARCHAR(128) NOT NULL,
-  icon VARCHAR(128),
-  item_id INTEGER,
-  type_id SMALLINT,
-  spell_id INTEGER,
-  UNIQUE (class_id, name)
-);
-
 CREATE TABLE players (
   id SERIAL PRIMARY KEY,
   name VARCHAR(32) NOT NULL,
@@ -143,12 +132,6 @@ CREATE TABLE players_talents (
   player_id INTEGER NOT NULL REFERENCES players (id),
   talent_id INTEGER NOT NULL REFERENCES talents (id),
   PRIMARY KEY (player_id, talent_id)
-);
-
-CREATE TABLE players_glyphs (
-  player_id INTEGER NOT NULL REFERENCES players (id),
-  glyph_id INTEGER NOT NULL REFERENCES glyphs (id),
-  PRIMARY KEY (player_id, glyph_id)
 );
 
 CREATE TABLE players_stats (
