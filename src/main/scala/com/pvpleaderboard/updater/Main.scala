@@ -9,6 +9,7 @@ object Main {
     val start = System.currentTimeMillis() / 1000
     logger.info("Updating PvPLeaderboard DB")
     NonPlayerUpdater.update()
+    PlayerUpdater.update()
     val end = System.currentTimeMillis() / 1000
     val elapsed = end - start
     val durationMessage = if (elapsed < 180) {
