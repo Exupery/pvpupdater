@@ -8,6 +8,7 @@ import scala.util.Try
 import org.slf4j.{ Logger, LoggerFactory }
 
 import net.liftweb.json.{ JValue, parse }
+import net.liftweb.json.JsonParser.ParseException
 
 /**
  * Send requests and receive responses to/from the Blizzard API
@@ -27,12 +28,23 @@ class ApiHandler {
       String.format("%s&%s", requiredParams, params)
     }
 
-    try {
-      val response: String = Source.fromURL(BASE_URI + path + allParams).mkString
+    val url: String = BASE_URI + path + allParams
+    for (c <- 1 to 3) {
+      try {
+        val response: String = Source.fromURL(url).mkString
 
-      return Option(parse(response))
-    } catch {
-      case io: IOException => logger.error("GET failed: " + io.toString())
+        return Option(parse(response))
+      } catch {
+        case p: ParseException => {
+          logger.error("Unable to parse response: {}", p.toString())
+          return Option.empty
+        }
+        case io: IOException => {
+          if (c == 3) {
+            logger.error("GET failed: {}", io.toString())
+          }
+        }
+      }
     }
 
     return Option.empty
