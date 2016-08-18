@@ -38,18 +38,21 @@ CREATE TABLE specs (
 );
 
 CREATE TABLE talents (
-  id INTEGER PRIMARY KEY,
+  id SERIAL,
+  spell_id INTEGER NOT NULL,
   class_id INTEGER NOT NULL REFERENCES classes (id),
-  spec_id INTEGER DEFAULT NULL REFERENCES specs (id),
+  spec_id INTEGER DEFAULT 0,
   name VARCHAR(128) NOT NULL,
   description VARCHAR(1024),
   icon VARCHAR(128),
   tier SMALLINT,
-  col SMALLINT
+  col SMALLINT,
+  PRIMARY KEY (spell_id, spec_id),
+  UNIQUE(id)
 );
 
 CREATE INDEX ON talents (tier, col);
-CREATE INDEX ON talents (class_id, name);
+CREATE INDEX ON talents (class_id, spec_id);
 
 CREATE TABLE players (
   id SERIAL PRIMARY KEY,
