@@ -14,6 +14,7 @@ class DbHandler {
 
   private val INSERT: String = "INSERT INTO %s (%s) VALUES %s %s"
   private val DO_NOTHING: String = "ON CONFLICT DO NOTHING"
+  private val DO_UPDATE: String = "ON CONFLICT ON CONSTRAINT %s_pkey DO UPDATE SET (%s)=(%s)"
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
@@ -43,6 +44,31 @@ class DbHandler {
     } finally {
       db.close()
     }
+  }
+
+  /**
+   * Inserts rows into {@code table}, on violation of the table's
+   * primary key the conflicting row(s) will be updated using the
+   * provided {@code values}.
+   */
+  def upsert(table: String, columns: List[String], values: List[List[Any]]): Int = {
+    if (columns.isEmpty || values.isEmpty) {
+      return 0
+    }
+    val cols: String = columns.mkString(",")
+
+    val valFormat = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
+    val valString = List.fill(values.size)(valFormat).mkString(",")
+
+    val updValString = columns.map("EXCLUDED." + _).mkString(",")
+    val updateString = String.format(DO_UPDATE, table, cols, updValString)
+
+    val sql: String = String.format(INSERT, table, cols, valString, updateString)
+
+    val inserted: Int = execute(sql, values)
+    logger.debug(s"Inserted or updated ${inserted} rows in ${table}")
+
+    return inserted
   }
 
   /**

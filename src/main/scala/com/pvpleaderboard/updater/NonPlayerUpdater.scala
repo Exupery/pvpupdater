@@ -28,10 +28,11 @@ object NonPlayerUpdater {
 
   private def importFactions(): Unit = {
     val factions: List[Faction] = NonApiData.factions
+    logger.debug("Found {} factions", factions.size)
     val rows = factions.foldLeft(List[List[Any]]()) { (l, f) =>
       l.:+(List(f.id, f.name))
     }
-    db.insertDoNothing("factions", List("id", "name"), rows)
+    db.upsert("factions", List("id", "name"), rows)
   }
 
   private def importRealms(): Unit = {
@@ -42,11 +43,12 @@ object NonPlayerUpdater {
     }
 
     val realms: List[Realm] = response.get.extract[Realms].realms
+    logger.debug("Found {} realms", realms.size)
     val columns: List[String] = List("slug", "name", "battlegroup", "timezone", "type")
     val rows = realms.foldLeft(List[List[Any]]()) { (l, r) =>
       l.:+(List(r.slug, r.name, r.battlegroup, r.timezone, r.`type`))
     }
-    db.insertDoNothing("realms", columns, rows)
+    db.upsert("realms", columns, rows)
   }
 
   private def importRaces(): Unit = {
@@ -57,11 +59,12 @@ object NonPlayerUpdater {
     }
 
     val races: List[Race] = response.get.extract[Races].races
+    logger.debug("Found {} races", races.size)
     val columns: List[String] = List("id", "name", "side")
     val rows = races.foldLeft(List[List[Any]]()) { (l, r) =>
       l.:+(List(r.id, r.name, r.side))
     }
-    db.insertDoNothing("races", columns, rows)
+    db.upsert("races", columns, rows)
   }
 
   private def importAchievements(): Unit = {
@@ -81,11 +84,12 @@ object NonPlayerUpdater {
       })
       .map(_.achievements)
       .flatten
+    logger.debug("Found {} achievements", achievements.size)
     val columns: List[String] = List("id", "name", "description", "icon", "points")
     val rows = achievements.foldLeft(List[List[Any]]()) { (l, a) =>
       l.:+(List(a.id, a.title, a.description, a.icon, a.points))
     }
-    db.insertDoNothing("achievements", columns, rows)
+    db.upsert("achievements", columns, rows)
   }
 
   private def slugify(str: String): String = {
@@ -100,11 +104,12 @@ object NonPlayerUpdater {
     }
 
     val classes: List[PlayerClass] = response.get.extract[Classes].classes
+    logger.debug("Found {} classes", classes.size)
     val columns: List[String] = List("id", "name")
     val rows = classes.foldLeft(List[List[Any]]()) { (l, c) =>
       l.:+(List(c.id, c.name))
     }
-    db.insertDoNothing("classes", columns, rows)
+    db.upsert("classes", columns, rows)
     return classes.map(c => slugify(c.name) -> c).toMap
   }
 
@@ -152,14 +157,15 @@ object NonPlayerUpdater {
           spec.icon))
       })
     }.flatten
-    db.insertDoNothing("specs", columns, rows)
+    logger.debug("Found {} specs", rows.size)
+    db.upsert("specs", columns, rows)
   }
 
   private def insertTalents(talentsAndSpecs: List[TalentsAndSpecs],
     classes: Map[String, PlayerClass]): Unit = {
 
     val columns: List[String] = List(
-      "id",
+      "spell_id",
       "class_id",
       "spec_id",
       "name",
@@ -181,7 +187,7 @@ object NonPlayerUpdater {
         list.:+(List(
           talent.spell.id,
           classId,
-          specId,
+          specId.getOrElse(0),
           talent.spell.name,
           talent.spell.description,
           talent.spell.icon,
@@ -189,7 +195,8 @@ object NonPlayerUpdater {
           talent.column))
       })
     }.flatten
-    db.insertDoNothing("talents", columns, rows)
+    logger.debug("Found {} talents", rows.size)
+    db.upsert("talents", columns, rows)
   }
 
   private def importPvPTalents(): Unit = {
