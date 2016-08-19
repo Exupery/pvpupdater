@@ -2,6 +2,8 @@ package com.pvpleaderboard.updater
 
 import org.slf4j.{ Logger, LoggerFactory }
 
+import com.pvpleaderboard.updater.NonApiData.slugify
+
 import net.liftweb.json.{ DefaultFormats, JValue }
 
 /**
@@ -90,10 +92,6 @@ object NonPlayerUpdater {
       l.:+(List(a.id, a.title, a.description, a.icon, a.points))
     }
     db.upsert("achievements", columns, rows)
-  }
-
-  private def slugify(str: String): String = {
-    return str.toLowerCase().replaceAll(" ", "-")
   }
 
   private def importClasses(): Map[String, PlayerClass] = {

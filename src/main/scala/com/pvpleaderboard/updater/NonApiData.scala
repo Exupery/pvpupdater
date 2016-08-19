@@ -45,4 +45,8 @@ object NonApiData {
     "monkMistweaver" -> 270,
     "demon-hunterHavoc" -> 577,
     "demon-hunterVengeance" -> 581)
+
+  def slugify(str: String): String = {
+    return str.toLowerCase().replaceAll(" ", "-")
+  }
 }
