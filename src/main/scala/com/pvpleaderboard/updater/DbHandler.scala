@@ -91,4 +91,51 @@ class DbHandler {
     return inserted
   }
 
+  def insertPlayersTalents(values: List[List[Any]]): Int = {
+    val db: Connection = DriverManager.getConnection(DB_URL)
+    db.setAutoCommit(false)
+
+    val deleteSql: String = """DELETE FROM players_talents WHERE player_id=(
+    SELECT players.id FROM players WHERE players.name=? AND players.realm_slug=?)
+    """
+
+    val sql: String = """
+      INSERT INTO players_talents (player_id, talent_id)
+      SELECT players.id, talents.id FROM players JOIN talents ON players.class_id=talents.class_id
+      WHERE players.name=? AND players.realm_slug=? AND (players.spec_id=talents.spec_id OR talents.spec_id=0)
+      AND talents.spell_id=? ON CONFLICT DO NOTHING
+    """
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val deleteStmt: PreparedStatement = db.prepareStatement(deleteSql)
+      var idx: Int = 1
+      values.foreach { row =>
+        row.foreach { value =>
+          stmt.setObject(idx, value)
+          if (idx < 3) {
+            deleteStmt.setObject(idx, value)
+          }
+          idx += 1
+        }
+        idx = 1
+        stmt.addBatch()
+        deleteStmt.addBatch()
+      }
+
+      deleteStmt.executeBatch()
+      val inserted: Int = stmt.executeBatch().foldLeft(0)((s, i) => s + i)
+      db.commit()
+      logger.debug(s"Inserted ${inserted} rows in players_talents")
+      return inserted
+    } catch {
+      case sqle: SQLException => {
+        logger.error("[SQLException] {}", sqle.getMessage)
+        return 0
+      }
+    } finally {
+      db.close()
+    }
+  }
+
 }

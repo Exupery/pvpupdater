@@ -2,7 +2,7 @@ package com.pvpleaderboard.updater
 
 import org.slf4j.{ Logger, LoggerFactory }
 
-import com.pvpleaderboard.updater.NonApiData.slugify
+import com.pvpleaderboard.updater.NonApiData.{ slugify, slugifyRealm }
 
 import net.liftweb.json.DefaultFormats
 import net.liftweb.json.JsonAST.JValue
@@ -72,7 +72,7 @@ object PlayerUpdater {
       "thumbnail")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
       val spec = getSpec(p)
-      val realm = slugify(p.realm).replaceAll("'", "")
+      val realm = slugifyRealm(p.realm)
       val guild = if (p.guild.isDefined) Option(p.guild.get.name) else Option.empty
 
       l.:+(List(
@@ -90,10 +90,30 @@ object PlayerUpdater {
     }
 
     db.upsert("players", columns, rows, Option("players_name_realm_slug_key"))
+    insertPlayersTalents(players)
+  }
+
+  private def getActiveTree(player: Player): Option[TalentTree] = {
+    return player.talents.filter(_.selected.getOrElse(false)).headOption
+  }
+
+  private def insertPlayersTalents(players: List[Player]): Unit = {
+    val columns: List[String] = List("name", "realm_slug", "spell_id")
+    val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
+      val activeTree = getActiveTree(p)
+      if (activeTree.isDefined) {
+        val talents = activeTree.get.talents.filterNot(_ == null)
+        l.:+(talents.map(t => List(p.name, slugifyRealm(p.realm), t.spell.id)))
+      } else {
+        l
+      }
+    }.flatten
+
+    db.insertPlayersTalents(rows)
   }
 
   private def getSpec(player: Player): Option[Int] = {
-    val activeTree = player.talents.filter(_.selected.getOrElse(false)).headOption
+    val activeTree = getActiveTree(player)
 
     return if (activeTree.isDefined && activeTree.get.spec.name.isDefined) {
       val specName: String = activeTree.get.spec.name.get
@@ -127,4 +147,4 @@ case class Player(name: String, realm: String, `class`: Int, race: Int, gender: 
 case class Guild(name: String)
 case class CompletedAchievements(achievementsCompleted: List[Int],
   achievementsCompletedTimestamp: List[Long])
-case class TalentTree(selected: Option[Boolean], talents: List[Option[Talent]], spec: TalentSpec)
+case class TalentTree(selected: Option[Boolean], talents: List[Talent], spec: TalentSpec)

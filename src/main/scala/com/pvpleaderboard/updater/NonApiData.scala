@@ -49,4 +49,8 @@ object NonApiData {
   def slugify(str: String): String = {
     return str.toLowerCase().replaceAll(" ", "-")
   }
+
+  def slugifyRealm(str: String): String = {
+    return slugify(str).replaceAll("'", "")
+  }
 }
