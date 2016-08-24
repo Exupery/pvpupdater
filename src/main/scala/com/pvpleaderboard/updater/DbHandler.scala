@@ -138,4 +138,40 @@ class DbHandler {
     }
   }
 
+  def insertPlayersAchievements(values: List[List[Any]]): Int = {
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    val sql: String = """
+      INSERT INTO players_achievements (player_id, achievement_id, achieved_at)
+      SELECT players.id, ?, to_timestamp(?) FROM players
+      WHERE players.name=? AND players.realm_slug=?
+      AND EXISTS (SELECT 1 FROM achievements WHERE id=?)
+      ON CONFLICT DO NOTHING
+    """
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      var idx: Int = 1
+      values.foreach { row =>
+        row.foreach { value =>
+          stmt.setObject(idx, value)
+          idx += 1
+        }
+        idx = 1
+        stmt.addBatch()
+      }
+
+      val inserted: Int = stmt.executeBatch().foldLeft(0)((s, i) => s + i)
+      logger.debug(s"Inserted ${inserted} rows in players_achievements")
+      return inserted
+    } catch {
+      case sqle: SQLException => {
+        logger.error("[SQLException] {}", sqle.getMessage)
+        return 0
+      }
+    } finally {
+      db.close()
+    }
+  }
+
 }

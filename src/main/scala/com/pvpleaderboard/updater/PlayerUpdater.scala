@@ -91,6 +91,7 @@ object PlayerUpdater {
 
     db.upsert("players", columns, rows, Option("players_name_realm_slug_key"))
     insertPlayersTalents(players)
+    insertPlayersAchievements(players)
   }
 
   private def getActiveTree(player: Player): Option[TalentTree] = {
@@ -98,7 +99,6 @@ object PlayerUpdater {
   }
 
   private def insertPlayersTalents(players: List[Player]): Unit = {
-    val columns: List[String] = List("name", "realm_slug", "spell_id")
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
       val activeTree = getActiveTree(p)
       if (activeTree.isDefined) {
@@ -110,6 +110,24 @@ object PlayerUpdater {
     }.flatten
 
     db.insertPlayersTalents(rows)
+  }
+
+  private def insertPlayersAchievements(players: List[Player]): Unit = {
+    val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
+      val timestamps: List[Long] = p.achievements.achievementsCompletedTimestamp
+      var idx: Int = -1
+      l.:+(p.achievements.achievementsCompleted.map { achievementId =>
+        idx += 1
+        List(
+          achievementId,
+          timestamps(idx) / 1000,
+          p.name,
+          slugifyRealm(p.realm),
+          achievementId)
+      })
+    }.flatten
+
+    db.insertPlayersAchievements(rows)
   }
 
   private def getSpec(player: Player): Option[Int] = {
