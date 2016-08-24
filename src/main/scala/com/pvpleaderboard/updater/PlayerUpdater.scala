@@ -31,6 +31,7 @@ object PlayerUpdater {
     logger.info("Updating player data")
 
     BRACKETS.foreach(importBracket)
+    db.setUpdateTime()
   }
 
   private def importBracket(bracket: String): Unit = {
@@ -41,9 +42,12 @@ object PlayerUpdater {
       return
     }
 
-    val leaderboard: List[LeaderboardEntry] = response.get.extract[Leaderboard].rows
-    logger.debug("Found {} {} players", leaderboard.size, bracket)
-    importPlayers(leaderboard.take(maxPerBracket.getOrElse(leaderboard.size)))
+    val fullLeaderboard: List[LeaderboardEntry] = response.get.extract[Leaderboard].rows
+    logger.debug("Found {} {} players", fullLeaderboard.size, bracket)
+    val leaderboard: List[LeaderboardEntry] =
+      fullLeaderboard.take(maxPerBracket.getOrElse(fullLeaderboard.size))
+    importPlayers(leaderboard)
+    updateLeaderboard(bracket, leaderboard)
   }
 
   private def importPlayers(leaderboard: List[LeaderboardEntry]): Unit = {
@@ -128,6 +132,20 @@ object PlayerUpdater {
     }.flatten
 
     db.insertPlayersAchievements(rows)
+  }
+
+  private def updateLeaderboard(bracket: String, leaderboard: List[LeaderboardEntry]): Unit = {
+    val rows = leaderboard.foldLeft(List[List[Any]]()) { (l, entry) =>
+      l.:+(List(
+        entry.ranking,
+        entry.rating,
+        entry.seasonWins,
+        entry.seasonLosses,
+        entry.name,
+        entry.realmSlug))
+    }
+
+    db.updateBracket(bracket, rows)
   }
 
   private def getSpec(player: Player): Option[Int] = {

@@ -138,6 +138,46 @@ class DbHandler {
     }
   }
 
+  def updateBracket(bracket: String, values: List[List[Any]]): Int = {
+    val db: Connection = DriverManager.getConnection(DB_URL)
+    db.setAutoCommit(false)
+
+    val deleteSql: String = s"TRUNCATE TABLE bracket_${bracket}"
+
+    val sql: String = s"""
+      INSERT INTO bracket_${bracket} (ranking, player_id, rating, season_wins, season_losses)
+      SELECT ?, players.id, ?, ?, ? FROM players
+      WHERE players.name=? AND players.realm_slug=?
+    """
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val deleteStmt: PreparedStatement = db.prepareStatement(deleteSql)
+      var idx: Int = 1
+      values.foreach { row =>
+        row.foreach { value =>
+          stmt.setObject(idx, value)
+          idx += 1
+        }
+        idx = 1
+        stmt.addBatch()
+      }
+
+      deleteStmt.execute()
+      val inserted: Int = stmt.executeBatch().foldLeft(0)((s, i) => s + i)
+      db.commit()
+      logger.debug(s"Populated bracket_${bracket} with ${inserted} rows")
+      return inserted
+    } catch {
+      case sqle: SQLException => {
+        logger.error("[SQLException] {}", sqle.getMessage)
+        return 0
+      }
+    } finally {
+      db.close()
+    }
+  }
+
   def insertPlayersAchievements(values: List[List[Any]]): Int = {
     val db: Connection = DriverManager.getConnection(DB_URL)
 
@@ -172,6 +212,15 @@ class DbHandler {
     } finally {
       db.close()
     }
+  }
+
+  def setUpdateTime(): Unit = {
+    val sql: String = """
+      INSERT INTO metadata (key, last_update) VALUES ('update_time', NOW())
+      ON CONFLICT (key) DO UPDATE SET last_update=NOW()
+    """
+
+    execute(sql, List.empty)
   }
 
 }
