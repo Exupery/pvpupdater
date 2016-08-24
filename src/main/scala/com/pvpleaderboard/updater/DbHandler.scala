@@ -10,7 +10,7 @@ import java.sql.SQLException
  */
 class DbHandler {
 
-  private val DB_URL: String = "jdbc:" + sys.env("DATABASE_URL")
+  private val DB_URL: String = "jdbc:" + sys.env("DB_URL")
 
   private val INSERT: String = "INSERT INTO %s (%s) VALUES %s %s"
   private val DO_NOTHING: String = "ON CONFLICT DO NOTHING"
