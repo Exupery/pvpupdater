@@ -37,13 +37,12 @@ class DbHandler {
 
       return stmt.executeUpdate()
     } catch {
-      case sqle: SQLException => {
-        logger.error("[SQLException] {}", sqle.getMessage)
-        return 0
-      }
+      case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
+
+    return 0
   }
 
   /**
@@ -129,13 +128,12 @@ class DbHandler {
       logger.debug(s"Inserted ${inserted} rows in players_talents")
       return inserted
     } catch {
-      case sqle: SQLException => {
-        logger.error("[SQLException] {}", sqle.getMessage)
-        return 0
-      }
+      case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
+
+    return 0
   }
 
   def updateBracket(bracket: String, values: List[List[Any]]): Int = {
@@ -169,13 +167,12 @@ class DbHandler {
       logger.debug(s"Populated bracket_${bracket} with ${inserted} rows")
       return inserted
     } catch {
-      case sqle: SQLException => {
-        logger.error("[SQLException] {}", sqle.getMessage)
-        return 0
-      }
+      case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
+
+    return 0
   }
 
   def insertPlayersAchievements(values: List[List[Any]]): Int = {
@@ -205,13 +202,12 @@ class DbHandler {
       logger.debug(s"Inserted ${inserted} rows in players_achievements")
       return inserted
     } catch {
-      case sqle: SQLException => {
-        logger.error("[SQLException] {}", sqle.getMessage)
-        return 0
-      }
+      case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
+
+    return 0
   }
 
   def setUpdateTime(): Unit = {
@@ -221,6 +217,13 @@ class DbHandler {
     """
 
     execute(sql, List.empty)
+  }
+
+  private def logSqlException(sqle: SQLException): Unit = {
+    logger.error("[SQLException] {}", sqle.getMessage)
+    if (sqle.getNextException != null) {
+      logger.error("Next exception: {}", sqle.getNextException.getMessage)
+    }
   }
 
 }
