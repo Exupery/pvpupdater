@@ -1,5 +1,7 @@
 package com.pvpleaderboard.updater
 
+import scala.util.Try
+
 import org.slf4j.{ Logger, LoggerFactory }
 
 import com.pvpleaderboard.updater.NonApiData.{ slugify, slugifyRealm }
@@ -62,12 +64,7 @@ object PlayerUpdater {
     val players: List[Player] = leaderboard.foldLeft(List[Player]()) { (list, entry) =>
       val response: Option[JValue] =
         api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
-      if (response.isDefined) {
-        val player: Player = response.get.extract[Player]
-        list.:+(player)
-      } else {
-        list
-      }
+      Try(list.:+(response.get.extract[Player])).getOrElse(list)
     }
 
     val columns: List[String] = List(
