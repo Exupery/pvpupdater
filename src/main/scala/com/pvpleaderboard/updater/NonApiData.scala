@@ -51,6 +51,9 @@ object NonApiData {
   }
 
   def slugifyRealm(str: String): String = {
-    return slugify(str).replaceAll("'", "")
+    return str.toLowerCase()
+      .replaceAll("-", "")
+      .replaceAll("'", "")
+      .replaceAll(" ", "-")
   }
 }
