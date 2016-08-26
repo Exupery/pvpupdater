@@ -58,9 +58,10 @@ object PlayerUpdater {
   }
 
   private def importPlayers(leaderboard: List[LeaderboardEntry]): Unit = {
-    val path: String = "character/%s/%s?fields=talents,guild,achievements"
+    val path: String = "character/%s/%s"
     val players: List[Player] = leaderboard.foldLeft(List[Player]()) { (list, entry) =>
-      val response: Option[JValue] = api.get(String.format(path, entry.realmSlug, entry.name))
+      val response: Option[JValue] =
+        api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
       if (response.isDefined) {
         val player: Player = response.get.extract[Player]
         list.:+(player)
