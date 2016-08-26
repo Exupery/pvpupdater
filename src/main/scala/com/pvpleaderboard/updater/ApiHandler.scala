@@ -40,7 +40,9 @@ class ApiHandler {
           return Option.empty
         }
         case io: IOException => {
-          if (c == 3) {
+          /* Do not log for failures on character endpoints - many of
+           * these 404 due to character transfer/rename/deletion/etc */
+          if (c == 3 && !io.toString().contains("/character/")) {
             logger.error("GET failed: {}", io.toString())
           }
         }
