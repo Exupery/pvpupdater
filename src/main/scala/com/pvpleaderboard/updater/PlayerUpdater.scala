@@ -27,12 +27,6 @@ object PlayerUpdater {
     Option.empty
   }
 
-  private val batchSize: Int = if (sys.env.isDefinedAt("BATCH_SIZE")) {
-    sys.env("BATCH_SIZE").toInt
-  } else {
-    500
-  }
-
   private lazy val classes: Map[Int, String] = getClasses()
 
   def update(): Unit = {
@@ -55,7 +49,7 @@ object PlayerUpdater {
     val leaderboard: List[LeaderboardEntry] =
       fullLeaderboard.take(maxPerBracket.getOrElse(fullLeaderboard.size))
 
-    leaderboard.grouped(batchSize).foreach(importPlayers)
+    importPlayers(leaderboard)
     updateLeaderboard(bracket, leaderboard)
   }
 

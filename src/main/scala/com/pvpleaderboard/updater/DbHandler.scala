@@ -16,33 +16,43 @@ class DbHandler {
   private val DO_NOTHING: String = "ON CONFLICT DO NOTHING"
   private val DO_UPDATE: String = "ON CONFLICT ON CONSTRAINT %s DO UPDATE SET (%s)=(%s)"
 
+  private val BATCH_SIZE: Int = if (sys.env.isDefinedAt("BATCH_SIZE")) {
+    sys.env("BATCH_SIZE").toInt
+  } else {
+    1000
+  }
+
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private def execute(sql: String, rows: List[List[Any]]): Int = {
     val db: Connection = DriverManager.getConnection(DB_URL)
+    var count: Int = 0
+
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
-      var idx: Int = 1
-      rows.foreach { row =>
-        row.foreach { value =>
-          val v = if (value.isInstanceOf[Option[Any]]) {
-            value.asInstanceOf[Option[Any]].getOrElse(null)
-          } else {
-            value
+      rows.grouped(BATCH_SIZE).foreach { group =>
+        group.foreach { row =>
+          var idx: Int = 1
+          row.foreach { value =>
+            val v = if (value.isInstanceOf[Option[Any]]) {
+              value.asInstanceOf[Option[Any]].getOrElse(null)
+            } else {
+              value
+            }
+            stmt.setObject(idx, v)
+            idx += 1
           }
-          stmt.setObject(idx, v)
-          idx += 1
+          stmt.addBatch()
         }
+        count += stmt.executeBatch().foldLeft(0)(_ + _)
       }
-
-      return stmt.executeUpdate()
     } catch {
       case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
 
-    return 0
+    return count
   }
 
   /**
@@ -57,9 +67,7 @@ class DbHandler {
     }
     val cols: String = columns.mkString(",")
 
-    val valFormat = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
-    val valString = List.fill(values.size)(valFormat).mkString(",")
-
+    val valString = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
     val updValString = columns.map("EXCLUDED." + _).mkString(",")
     val key: String = conflictKey.getOrElse(table + "_pkey")
     val updateString = String.format(DO_UPDATE, key, cols, updValString)
@@ -80,8 +88,7 @@ class DbHandler {
       return 0
     }
     val cols: String = columns.mkString(",")
-    val valFormat = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
-    val valString = List.fill(values.size)(valFormat).mkString(",")
+    val valString = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
     val sql: String = String.format(INSERT, table, cols, valString, DO_NOTHING)
 
     val inserted: Int = execute(sql, values)
