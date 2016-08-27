@@ -252,6 +252,25 @@ class DbHandler {
     return Map.empty
   }
 
+  def getAchievementsIds(): Set[Int] = {
+    val sql: String = "SELECT id FROM achievements"
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val rs: ResultSet = stmt.executeQuery()
+
+      return Iterator.continually(rs.next()).takeWhile(identity)
+        .map(_ => rs.getInt(1)).toSet
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+
+    return Set.empty
+  }
+
   private def logSqlException(sqle: SQLException): Unit = {
     logger.error("[SQLException] {}", sqle.getMessage)
     if (sqle.getNextException != null) {

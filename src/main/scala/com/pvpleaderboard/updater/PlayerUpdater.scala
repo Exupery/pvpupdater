@@ -119,6 +119,7 @@ object PlayerUpdater {
 
   private def insertPlayersAchievements(players: List[Player],
     playerIds: Map[String, Int]): Unit = {
+    val pvpIds: Set[Int] = db.getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
       val id = playerIds.getOrElse(p.name + p.realm, -1)
       if (id > -1) {
@@ -126,16 +127,16 @@ object PlayerUpdater {
         var idx: Int = -1
         l.:+(p.achievements.achievementsCompleted.map { achievementId =>
           idx += 1
-          List(
-            id,
-            achievementId,
-            timestamps(idx) / 1000)
+          if (pvpIds.contains(achievementId)) {
+            List(id, achievementId, timestamps(idx) / 1000)
+          } else {
+            List.empty
+          }
         })
       } else {
         l
       }
-    }.flatten
-
+    }.flatten.filter(!_.isEmpty)
     db.insertPlayersAchievements(rows)
   }
 
