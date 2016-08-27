@@ -1,9 +1,10 @@
 package com.pvpleaderboard.updater
 
-import java.sql.{ Connection, DriverManager, PreparedStatement }
+import java.sql.{ Connection, DriverManager, PreparedStatement, ResultSet, SQLException }
 
 import org.slf4j.{ Logger, LoggerFactory }
-import java.sql.SQLException
+
+import com.pvpleaderboard.updater.NonApiData.slugifyRealm
 
 /**
  * Handles database CRUD operations.
@@ -97,34 +98,30 @@ class DbHandler {
     return inserted
   }
 
-  def insertPlayersTalents(values: List[List[Any]]): Int = {
+  def insertPlayersTalents(ids: List[(Int, Int)]): Int = {
     val db: Connection = DriverManager.getConnection(DB_URL)
     db.setAutoCommit(false)
 
-    val deleteSql: String = """DELETE FROM players_talents WHERE player_id=(
-    SELECT players.id FROM players WHERE players.name=? AND players.realm_slug=?)
-    """
+    val deleteSql: String = "DELETE FROM players_talents WHERE player_id=?"
 
     val sql: String = """
       INSERT INTO players_talents (player_id, talent_id)
-      SELECT players.id, talents.id FROM players JOIN talents ON players.class_id=talents.class_id
-      WHERE players.name=? AND players.realm_slug=? AND (players.spec_id=talents.spec_id OR talents.spec_id=0)
-      AND talents.spell_id=? ON CONFLICT DO NOTHING
-    """
+      SELECT ?, talents.id FROM players JOIN talents ON players.class_id=talents.class_id
+      WHERE players.id=? AND (players.spec_id=talents.spec_id OR talents.spec_id=0)
+      AND talents.spell_id=?
+    """ + DO_NOTHING
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
       val deleteStmt: PreparedStatement = db.prepareStatement(deleteSql)
-      var idx: Int = 1
-      values.foreach { row =>
-        row.foreach { value =>
-          stmt.setObject(idx, value)
-          if (idx < 3) {
-            deleteStmt.setObject(idx, value)
-          }
-          idx += 1
-        }
-        idx = 1
+      ids.foreach { t =>
+        val playerId: Int = t._1
+
+        stmt.setInt(1, playerId)
+        stmt.setInt(2, playerId)
+        stmt.setInt(3, t._2)
+        deleteStmt.setInt(1, playerId)
+
         stmt.addBatch()
         deleteStmt.addBatch()
       }
@@ -153,7 +150,7 @@ class DbHandler {
       INSERT INTO bracket_${bracket} (ranking, player_id, rating, season_wins, season_losses)
       SELECT ?, players.id, ?, ?, ? FROM players
       WHERE players.name=? AND players.realm_slug=?
-    """
+    """ + DO_NOTHING
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
@@ -187,21 +184,17 @@ class DbHandler {
 
     val sql: String = """
       INSERT INTO players_achievements (player_id, achievement_id, achieved_at)
-      SELECT players.id, ?, to_timestamp(?) FROM players
-      WHERE players.name=? AND players.realm_slug=?
-      AND EXISTS (SELECT 1 FROM achievements WHERE id=?)
-      ON CONFLICT DO NOTHING
-    """
+      SELECT ?, ?, to_timestamp(?)
+      WHERE EXISTS (SELECT 1 FROM achievements WHERE id=?)
+    """ + DO_NOTHING
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
-      var idx: Int = 1
       values.foreach { row =>
-        row.foreach { value =>
-          stmt.setObject(idx, value)
-          idx += 1
-        }
-        idx = 1
+        stmt.setObject(1, row(0))
+        stmt.setObject(2, row(1))
+        stmt.setObject(3, row(2))
+        stmt.setObject(4, row(1))
         stmt.addBatch()
       }
 
@@ -224,6 +217,39 @@ class DbHandler {
     """
 
     execute(sql, List.empty)
+  }
+
+  def getPlayerIds(players: List[(String, String)]): Map[String, Int] = {
+    logger.debug("Getting player IDs for {} players", players.size)
+    val sql: String = "SELECT id FROM players WHERE name=? AND realm_slug=?"
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val idMap = players.foldLeft(Map[String, Int]()) { (map, player) =>
+        val name: String = player._1
+        val realm: String = player._2
+        stmt.setString(1, name)
+        stmt.setString(2, slugifyRealm(realm))
+        val rs: ResultSet = stmt.executeQuery()
+        if (rs.next()) {
+          val id = rs.getInt(1)
+          map.+((name + realm) -> id)
+        } else {
+          logger.warn(s"${name} (${realm}) is not in players table")
+          map
+        }
+      }
+
+      logger.debug("Found {} player IDs", idMap.size)
+      return idMap
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+
+    return Map.empty
   }
 
   private def logSqlException(sqle: SQLException): Unit = {

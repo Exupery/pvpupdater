@@ -93,20 +93,22 @@ object PlayerUpdater {
     }
 
     db.upsert("players", columns, rows, Option("players_name_realm_slug_key"))
-    insertPlayersTalents(players)
-    insertPlayersAchievements(players)
+    val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, p.realm)))
+    insertPlayersTalents(players, playerIds)
+    insertPlayersAchievements(players, playerIds)
   }
 
   private def getActiveTree(player: Player): Option[TalentTree] = {
     return player.talents.filter(_.selected.getOrElse(false)).headOption
   }
 
-  private def insertPlayersTalents(players: List[Player]): Unit = {
-    val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
+  private def insertPlayersTalents(players: List[Player], playerIds: Map[String, Int]): Unit = {
+    val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
       val activeTree = getActiveTree(p)
-      if (activeTree.isDefined) {
+      val id = playerIds.getOrElse(p.name + p.realm, -1)
+      if (activeTree.isDefined && id > -1) {
         val talents = activeTree.get.talents.filterNot(_ == null)
-        l.:+(talents.map(t => List(p.name, slugifyRealm(p.realm), t.spell.id)))
+        l.:+(talents.map(t => (id, t.spell.id)))
       } else {
         l
       }
@@ -115,19 +117,23 @@ object PlayerUpdater {
     db.insertPlayersTalents(rows)
   }
 
-  private def insertPlayersAchievements(players: List[Player]): Unit = {
+  private def insertPlayersAchievements(players: List[Player],
+    playerIds: Map[String, Int]): Unit = {
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
-      val timestamps: List[Long] = p.achievements.achievementsCompletedTimestamp
-      var idx: Int = -1
-      l.:+(p.achievements.achievementsCompleted.map { achievementId =>
-        idx += 1
-        List(
-          achievementId,
-          timestamps(idx) / 1000,
-          p.name,
-          slugifyRealm(p.realm),
-          achievementId)
-      })
+      val id = playerIds.getOrElse(p.name + p.realm, -1)
+      if (id > -1) {
+        val timestamps: List[Long] = p.achievements.achievementsCompletedTimestamp
+        var idx: Int = -1
+        l.:+(p.achievements.achievementsCompleted.map { achievementId =>
+          idx += 1
+          List(
+            id,
+            achievementId,
+            timestamps(idx) / 1000)
+        })
+      } else {
+        l
+      }
     }.flatten
 
     db.insertPlayersAchievements(rows)
