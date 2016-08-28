@@ -95,7 +95,7 @@ object PlayerUpdater {
     db.upsert("players", columns, rows, Option("players_name_realm_slug_key"))
     val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, p.realm)))
     insertPlayersTalents(players, playerIds)
-    insertPlayersAchievements(players, playerIds)
+    players.grouped(1000).foreach(insertPlayersAchievements(_, playerIds))
   }
 
   private def getActiveTree(player: Player): Option[TalentTree] = {
