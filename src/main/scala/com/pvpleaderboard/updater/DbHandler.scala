@@ -211,12 +211,20 @@ class DbHandler {
   }
 
   def setUpdateTime(): Unit = {
+    val db: Connection = DriverManager.getConnection(DB_URL)
     val sql: String = """
       INSERT INTO metadata (key, last_update) VALUES ('update_time', NOW())
       ON CONFLICT (key) DO UPDATE SET last_update=NOW()
     """
-
-    execute(sql, List.empty)
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      stmt.executeUpdate()
+      stmt.close()
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
   }
 
   def getPlayerIds(players: List[(String, String)]): Map[String, Int] = {
