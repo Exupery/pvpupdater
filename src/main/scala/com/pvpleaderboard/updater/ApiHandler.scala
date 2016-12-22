@@ -13,7 +13,7 @@ import net.liftweb.json.JsonParser.ParseException
 /**
  * Send requests and receive responses to/from the Blizzard API
  */
-class ApiHandler {
+class ApiHandler(val region: String) {
   private val BASE_URI: String = "https://%s.api.battle.net/wow/"
   private val API_KEY: String = sys.env("BATTLE_NET_API_KEY")
 
@@ -50,4 +50,9 @@ class ApiHandler {
 
     return Option.empty
   }
+}
+
+object Region {
+  val EU: String = "eu"
+  val US: String = "us"
 }

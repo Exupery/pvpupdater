@@ -15,7 +15,7 @@ import net.liftweb.json.JsonAST.JValue
 object PlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  private val api: ApiHandler = new ApiHandler()
+  private val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
   private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
 
@@ -32,11 +32,13 @@ object PlayerUpdater {
   def update(): Unit = {
     logger.info("Updating player data")
 
-    BRACKETS.foreach(importBracket)
+    apis.foreach { api =>
+      BRACKETS.foreach(b => importBracket(b, api))
+    }
     db.setUpdateTime()
   }
 
-  private def importBracket(bracket: String): Unit = {
+  private def importBracket(bracket: String, api: ApiHandler): Unit = {
     logger.info("Importing {}", bracket)
     val response: Option[JValue] = api.get("leaderboard/" + bracket)
     if (response.isEmpty) {
@@ -49,11 +51,11 @@ object PlayerUpdater {
     val leaderboard: List[LeaderboardEntry] =
       fullLeaderboard.take(maxPerBracket.getOrElse(fullLeaderboard.size))
 
-    importPlayers(leaderboard)
+    importPlayers(leaderboard, api)
     updateLeaderboard(bracket, leaderboard)
   }
 
-  private def importPlayers(leaderboard: List[LeaderboardEntry]): Unit = {
+  private def importPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): Unit = {
     val path: String = "character/%s/%s"
     val players: List[Player] = leaderboard.foldLeft(List[Player]()) { (list, entry) =>
       val response: Option[JValue] =
@@ -167,7 +169,7 @@ object PlayerUpdater {
   }
 
   private def getClasses(): Map[Int, String] = {
-    val response: Option[JValue] = api.get("data/character/classes")
+    val response: Option[JValue] = apis.head.get("data/character/classes")
     if (response.isEmpty) {
       throw new IllegalStateException("Unable to create class ID map")
     }

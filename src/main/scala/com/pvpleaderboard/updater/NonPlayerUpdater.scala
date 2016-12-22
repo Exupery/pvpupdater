@@ -13,14 +13,14 @@ import net.liftweb.json.{ DefaultFormats, JValue }
 object NonPlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  private val api: ApiHandler = new ApiHandler()
+  private val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
   private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
 
   def update(): Unit = {
     logger.info("Updating non-player data")
     importFactions()
-    importRealms()
+    apis.foreach(importRealms)
     importRaces()
     importAchievements()
     val classes: Map[String, PlayerClass] = importClasses()
@@ -37,7 +37,7 @@ object NonPlayerUpdater {
     db.upsert("factions", List("id", "name"), rows)
   }
 
-  private def importRealms(): Unit = {
+  private def importRealms(api: ApiHandler): Unit = {
     val response: Option[JValue] = api.get("realm/status")
     if (response.isEmpty) {
       logger.warn("Skipping realms import")
@@ -45,7 +45,7 @@ object NonPlayerUpdater {
     }
 
     val realms: List[Realm] = response.get.extract[Realms].realms
-    logger.debug("Found {} realms", realms.size)
+    logger.debug("Found {} {} realms", realms.size, api.region.toUpperCase())
     val columns: List[String] = List("slug", "name", "battlegroup", "timezone", "type")
     val rows = realms.foldLeft(List[List[Any]]()) { (l, r) =>
       l.:+(List(r.slug, r.name, r.battlegroup, r.timezone, r.`type`))
@@ -54,7 +54,7 @@ object NonPlayerUpdater {
   }
 
   private def importRaces(): Unit = {
-    val response: Option[JValue] = api.get("data/character/races")
+    val response: Option[JValue] = apis.head.get("data/character/races")
     if (response.isEmpty) {
       logger.warn("Skipping races import")
       return
@@ -70,7 +70,7 @@ object NonPlayerUpdater {
   }
 
   private def importAchievements(): Unit = {
-    val response: Option[JValue] = api.get("data/character/achievements")
+    val response: Option[JValue] = apis.head.get("data/character/achievements")
     if (response.isEmpty) {
       logger.warn("Skipping achievements import")
       return
@@ -95,7 +95,7 @@ object NonPlayerUpdater {
   }
 
   private def importClasses(): Map[String, PlayerClass] = {
-    val response: Option[JValue] = api.get("data/character/classes")
+    val response: Option[JValue] = apis.head.get("data/character/classes")
     if (response.isEmpty) {
       logger.warn("Skipping classes import")
       return Map.empty
@@ -112,7 +112,7 @@ object NonPlayerUpdater {
   }
 
   private def importTalentsAndSpecs(classes: Map[String, PlayerClass]): Unit = {
-    val response: Option[JValue] = api.get("data/talents")
+    val response: Option[JValue] = apis.head.get("data/talents")
     if (response.isEmpty) {
       logger.warn("Skipping talent and spec import")
       return
