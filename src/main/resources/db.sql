@@ -1,10 +1,12 @@
 CREATE TABLE realms (
-  slug VARCHAR(64) PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
+  slug VARCHAR(64) NOT NULL,
   name VARCHAR(64) NOT NULL,
+  region CHAR(2) NOT NULL,
   battlegroup VARCHAR(64),
   timezone VARCHAR(64),
   type VARCHAR(16),
-  UNIQUE (name)
+  UNIQUE (slug, region)
 );
 
 CREATE TABLE races (
@@ -61,14 +63,14 @@ CREATE TABLE players (
   spec_id INTEGER REFERENCES specs (id),
   faction_id INTEGER REFERENCES factions (id),
   race_id INTEGER REFERENCES races (id),
-  realm_slug VARCHAR(64) NOT NULL REFERENCES realms (slug),
+  realm_id INTEGER NOT NULL REFERENCES realms (id),
   guild VARCHAR(64),
   gender SMALLINT,
   achievement_points INTEGER,
   honorable_kills INTEGER,
   thumbnail VARCHAR(128),
   last_update TIMESTAMP NOT NULL DEFAULT NOW(),
-  UNIQUE (name, realm_slug)
+  UNIQUE (name, realm_id)
 );
 
 CREATE INDEX ON players (class_id, spec_id);
@@ -76,44 +78,20 @@ CREATE INDEX ON players (faction_id, race_id);
 CREATE INDEX ON players (guild);
 CREATE INDEX ON players (last_update DESC);
 
-CREATE TABLE bracket_2v2 (
-  ranking INTEGER PRIMARY KEY,
+CREATE TABLE leaderboards (
+  bracket CHAR(3) NOT NULL,
+  region CHAR(2) NOT NULL,
+  ranking INTEGER NOT NULL,
   player_id INTEGER NOT NULL REFERENCES players (id),
   rating SMALLINT NOT NULL,
   season_wins SMALLINT,
   season_losses SMALLINT,
   last_update TIMESTAMP DEFAULT NOW(),
-  UNIQUE (player_id)
+  PRIMARY KEY (bracket, region, ranking),
+  UNIQUE (bracket, region, player_id)
 );
 
-CREATE INDEX ON bracket_2v2 (rating);
-CREATE INDEX ON bracket_2v2 (last_update DESC);
-
-CREATE TABLE bracket_3v3 (
-  ranking INTEGER PRIMARY KEY,
-  player_id INTEGER NOT NULL REFERENCES players (id),
-  rating SMALLINT NOT NULL,
-  season_wins SMALLINT,
-  season_losses SMALLINT,
-  last_update TIMESTAMP DEFAULT NOW(),
-  UNIQUE (player_id)
-);
-
-CREATE INDEX ON bracket_3v3 (rating);
-CREATE INDEX ON bracket_3v3 (last_update DESC);
-
-CREATE TABLE bracket_rbg (
-  ranking INTEGER PRIMARY KEY,
-  player_id INTEGER NOT NULL REFERENCES players (id),
-  rating SMALLINT NOT NULL,
-  season_wins SMALLINT,
-  season_losses SMALLINT,
-  last_update TIMESTAMP DEFAULT NOW(),
-  UNIQUE (player_id)
-);
-
-CREATE INDEX ON bracket_rbg (rating);
-CREATE INDEX ON bracket_rbg (last_update DESC);
+CREATE INDEX ON leaderboards (rating);
 
 CREATE TABLE achievements (
   id INTEGER PRIMARY KEY,
@@ -138,14 +116,8 @@ CREATE TABLE players_talents (
   PRIMARY KEY (player_id, talent_id)
 );
 
-CREATE VIEW player_ids_all_brackets AS
-  SELECT player_id FROM bracket_2v2 UNION
-  SELECT player_id FROM bracket_3v3 UNION
-  SELECT player_id FROM bracket_rbg;
-
 CREATE TABLE metadata (
   key VARCHAR(32) PRIMARY KEY,
   value VARCHAR(512) NOT NULL DEFAULT '',
   last_update TIMESTAMP DEFAULT NOW()
 );
-
