@@ -14,7 +14,7 @@ import net.liftweb.json.JsonParser.ParseException
  * Send requests and receive responses to/from the Blizzard API
  */
 class ApiHandler(val region: String) {
-  private val BASE_URI: String = "https://%s.api.battle.net/wow/"
+  private val BASE_URI: String = String.format("https://%s.api.battle.net/wow/", region)
   private val API_KEY: String = sys.env("BATTLE_NET_API_KEY")
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -27,7 +27,7 @@ class ApiHandler(val region: String) {
       String.format("%s&%s", requiredParams, params)
     }
 
-    val url: String = BASE_URI + path + allParams // TODO INSERT REGION
+    val url: String = BASE_URI + path + allParams
     for (c <- 1 to 3) {
       try {
         val response: String = Source.fromURL(url).mkString
