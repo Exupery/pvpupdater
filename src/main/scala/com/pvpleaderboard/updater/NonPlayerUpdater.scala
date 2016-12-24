@@ -45,12 +45,13 @@ object NonPlayerUpdater {
     }
 
     val realms: List[Realm] = response.get.extract[Realms].realms
-    logger.debug("Found {} {} realms", realms.size, api.region.toUpperCase())
-    val columns: List[String] = List("slug", "name", "battlegroup", "timezone", "type")
+    val region: String = api.region.toUpperCase()
+    logger.debug("Found {} {} realms", realms.size, region)
+    val columns: List[String] = List("slug", "name", "region", "battlegroup", "timezone", "type")
     val rows = realms.foldLeft(List[List[Any]]()) { (l, r) =>
-      l.:+(List(r.slug, r.name, r.battlegroup, r.timezone, r.`type`))
+      l.:+(List(r.slug, r.name, region, r.battlegroup, r.timezone, r.`type`))
     }
-    db.upsert("realms", columns, rows)
+    db.upsert("realms", columns, rows, Option("realms_slug_region_key"))
   }
 
   private def importRaces(): Unit = {
