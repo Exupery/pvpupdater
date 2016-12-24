@@ -227,21 +227,21 @@ class DbHandler {
     }
   }
 
-  def getPlayerIds(players: List[(String, String)]): Map[String, Int] = {
+  def getPlayerIds(players: List[(String, Int)]): Map[String, Int] = {
     logger.debug("Getting player IDs for {} players", players.size)
-    val sql: String = "SELECT id FROM players WHERE name=? AND realm_slug=?"
+    val sql: String = "SELECT id FROM players WHERE name=? AND realm_id=?"
     val db: Connection = DriverManager.getConnection(DB_URL)
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
       val idMap = players.foldLeft(Map[String, Int]()) { (map, player) =>
         val name: String = player._1
-        val realm: String = player._2
+        val realm: Int = player._2
         stmt.setString(1, name)
-        stmt.setString(2, slugifyRealm(realm))
+        stmt.setInt(2, realm)
         val rs: ResultSet = stmt.executeQuery()
         if (rs.next()) {
-          val id = rs.getInt(1)
+          val id = rs.getInt("id")
           map.+((name + realm) -> id)
         } else {
           logger.warn(s"${name} (${realm}) is not in players table")
@@ -251,6 +251,25 @@ class DbHandler {
 
       logger.debug("Found {} player IDs", idMap.size)
       return idMap
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+
+    return Map.empty
+  }
+
+  def getRealmIds(region: String): Map[String, Int] = {
+    val sql: String = "SELECT name, id FROM realms WHERE region=?"
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      stmt.setString(1, region.toUpperCase())
+      val rs: ResultSet = stmt.executeQuery()
+      return Iterator.continually(rs.next()).takeWhile(identity)
+        .map(_ => rs.getString("name") -> rs.getInt("id")).toMap
     } catch {
       case sqle: SQLException => logSqlException(sqle)
     } finally {

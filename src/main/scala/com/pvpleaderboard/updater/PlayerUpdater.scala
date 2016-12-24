@@ -62,6 +62,7 @@ object PlayerUpdater {
         api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
       Try(list.:+(response.get.extract[Player])).getOrElse(list)
     }
+    val realmIds: Map[String, Int] = db.getRealmIds(api.region)
 
     val columns: List[String] = List(
       "name",
@@ -69,7 +70,7 @@ object PlayerUpdater {
       "spec_id",
       "faction_id",
       "race_id",
-      "realm_slug",
+      "realm_id",
       "guild",
       "gender",
       "achievement_points",
@@ -77,7 +78,7 @@ object PlayerUpdater {
       "thumbnail")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
       val spec = getSpec(p)
-      val realm = slugifyRealm(p.realm)
+      val realm: Int = realmIds(p.realm)
       val guild = if (p.guild.isDefined) Option(p.guild.get.name) else Option.empty
 
       l.:+(List(
@@ -94,8 +95,8 @@ object PlayerUpdater {
         p.thumbnail))
     }
 
-    db.upsert("players", columns, rows, Option("players_name_realm_slug_key"))
-    val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, p.realm)))
+    db.upsert("players", columns, rows, Option("players_name_realm_id_key"))
+    val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, realmIds(p.realm))))
     insertPlayersTalents(players, playerIds)
     players.grouped(1000).foreach(insertPlayersAchievements(_, playerIds))
   }
