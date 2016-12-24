@@ -140,25 +140,34 @@ class DbHandler {
     return 0
   }
 
-  def updateBracket(bracket: String, values: List[List[Any]]): Int = {
+  def updateBracket(bracket: String, region: String, values: List[List[Any]]): Int = {
+    val realmIds: Map[String, Int] = getRealmIds(region)
+    val regionUpper: String = region.toUpperCase()
     val db: Connection = DriverManager.getConnection(DB_URL)
     db.setAutoCommit(false)
 
-    val deleteSql: String = s"TRUNCATE TABLE bracket_${bracket}"
+    val deleteSql: String = "DELETE FROM leaderboards WHERE bracket=? AND region=?"
 
     val sql: String = s"""
-      INSERT INTO bracket_${bracket} (ranking, player_id, rating, season_wins, season_losses)
-      SELECT ?, players.id, ?, ?, ? FROM players
-      WHERE players.name=? AND players.realm_slug=?
+      INSERT INTO leaderboards (bracket, region, ranking, player_id, rating, season_wins,
+      season_losses) SELECT '${bracket}', '${regionUpper}', ?, players.id, ?, ?, ?
+      FROM players WHERE players.name=? AND players.realm_id=?
     """ + DO_NOTHING
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
       val deleteStmt: PreparedStatement = db.prepareStatement(deleteSql)
+      deleteStmt.setString(1, bracket)
+      deleteStmt.setString(2, regionUpper)
+
       var idx: Int = 1
       values.foreach { row =>
         row.foreach { value =>
-          stmt.setObject(idx, value)
+          if (idx == row.size) {
+            stmt.setInt(idx, realmIds(value.toString()))
+          } else {
+            stmt.setObject(idx, value)
+          }
           idx += 1
         }
         idx = 1
@@ -168,7 +177,7 @@ class DbHandler {
       deleteStmt.execute()
       val inserted: Int = stmt.executeBatch().foldLeft(0)((s, i) => s + i)
       db.commit()
-      logger.debug(s"Populated bracket_${bracket} with ${inserted} rows")
+      logger.debug(s"Populated ${regionUpper} ${bracket} with ${inserted} rows")
       return inserted
     } catch {
       case sqle: SQLException => logSqlException(sqle)
@@ -261,7 +270,7 @@ class DbHandler {
   }
 
   def getRealmIds(region: String): Map[String, Int] = {
-    val sql: String = "SELECT name, id FROM realms WHERE region=?"
+    val sql: String = "SELECT slug, id FROM realms WHERE region=?"
     val db: Connection = DriverManager.getConnection(DB_URL)
 
     try {
@@ -269,7 +278,7 @@ class DbHandler {
       stmt.setString(1, region.toUpperCase())
       val rs: ResultSet = stmt.executeQuery()
       return Iterator.continually(rs.next()).takeWhile(identity)
-        .map(_ => rs.getString("name") -> rs.getInt("id")).toMap
+        .map(_ => rs.getString("slug") -> rs.getInt("id")).toMap
     } catch {
       case sqle: SQLException => logSqlException(sqle)
     } finally {
