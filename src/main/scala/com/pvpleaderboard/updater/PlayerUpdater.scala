@@ -63,6 +63,7 @@ object PlayerUpdater {
       Try(list.:+(response.get.extract[Player])).getOrElse(list)
     }
     val realmIds: Map[String, Int] = db.getRealmIds(api.region)
+    players.foreach(p => p.realmId = realmIds(slugifyRealm(p.realm)))
 
     val columns: List[String] = List(
       "name",
@@ -78,7 +79,6 @@ object PlayerUpdater {
       "thumbnail")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
       val spec = getSpec(p)
-      val realm: Int = realmIds(slugifyRealm(p.realm))
       val guild = if (p.guild.isDefined) Option(p.guild.get.name) else Option.empty
 
       l.:+(List(
@@ -87,7 +87,7 @@ object PlayerUpdater {
         spec,
         p.faction,
         p.race,
-        realm,
+        p.realmId,
         guild,
         p.gender,
         p.achievementPoints,
@@ -96,20 +96,20 @@ object PlayerUpdater {
     }
 
     db.upsert("players", columns, rows, Option("players_name_realm_id_key"))
-    val playerIds: Map[String, Int] =
-      db.getPlayerIds(players.map(p => (p.name, realmIds(slugifyRealm(p.realm)))))
-    insertPlayersTalents(players, playerIds)
-    players.grouped(1000).foreach(insertPlayersAchievements(_, playerIds))
+    val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, p.realmId)))
+    players.foreach(p => p.playerId = playerIds.getOrElse(p.name + p.realmId, -1))
+    insertPlayersTalents(players)
+    players.grouped(1000).foreach(insertPlayersAchievements)
   }
 
   private def getActiveTree(player: Player): Option[TalentTree] = {
     return player.talents.filter(_.selected.getOrElse(false)).headOption
   }
 
-  private def insertPlayersTalents(players: List[Player], playerIds: Map[String, Int]): Unit = {
+  private def insertPlayersTalents(players: List[Player]): Unit = {
     val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
       val activeTree = getActiveTree(p)
-      val id = playerIds.getOrElse(p.name + p.realm, -1)
+      val id = p.playerId
       if (activeTree.isDefined && id > -1) {
         val talents = activeTree.get.talents.filterNot(_ == null)
         l.:+(talents.map(t => (id, t.spell.id)))
@@ -121,11 +121,10 @@ object PlayerUpdater {
     db.insertPlayersTalents(rows)
   }
 
-  private def insertPlayersAchievements(players: List[Player],
-    playerIds: Map[String, Int]): Unit = {
+  private def insertPlayersAchievements(players: List[Player]): Unit = {
     val pvpIds: Set[Int] = db.getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
-      val id = playerIds.getOrElse(p.name + p.realm, -1)
+      val id = p.playerId
       if (id > -1) {
         val timestamps: List[Long] = p.achievements.achievementsCompletedTimestamp
         var idx: Int = -1
@@ -189,8 +188,11 @@ case class LeaderboardEntry(ranking: Int, rating: Int, name: String, realmSlug: 
   specId: Int, seasonWins: Int, seasonLosses: Int)
 
 case class Player(name: String, realm: String, `class`: Int, race: Int, gender: Int,
-  achievementPoints: Int, thumbnail: String, faction: Int, totalHonorableKills: Int,
-  guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree])
+    achievementPoints: Int, thumbnail: String, faction: Int, totalHonorableKills: Int,
+    guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree]) {
+  var realmId: Int = -1
+  var playerId: Int = -1
+}
 case class Guild(name: String)
 case class CompletedAchievements(achievementsCompleted: List[Int],
   achievementsCompletedTimestamp: List[Long])
