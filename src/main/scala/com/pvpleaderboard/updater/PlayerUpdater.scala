@@ -39,7 +39,7 @@ object PlayerUpdater {
   }
 
   private def importBracket(bracket: String, api: ApiHandler): Unit = {
-    logger.info("Importing {}", bracket)
+    logger.info("Importing {} {}", api.region.toUpperCase(), bracket: Any)
     val response: Option[JValue] = api.get("leaderboard/" + bracket)
     if (response.isEmpty) {
       logger.warn("Skipping {} import", bracket)
