@@ -4,7 +4,7 @@ import scala.util.Try
 
 import org.slf4j.{ Logger, LoggerFactory }
 
-import com.pvpleaderboard.updater.NonApiData.{ slugify, slugifyRealm }
+import com.pvpleaderboard.updater.NonApiData.slugify
 
 import net.liftweb.json.DefaultFormats
 import net.liftweb.json.JsonAST.JValue
@@ -62,8 +62,8 @@ object PlayerUpdater {
         api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
       Try(list.:+(response.get.extract[Player])).getOrElse(list)
     }
-    val realmIds: Map[String, Int] = db.getRealmIds(api.region)
-    players.foreach(p => p.realmId = realmIds(slugifyRealm(p.realm)))
+    val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
+    players.foreach(p => p.realmId = realmIds(p.realm))
 
     val columns: List[String] = List(
       "name",
@@ -145,6 +145,7 @@ object PlayerUpdater {
 
   private def updateLeaderboard(bracket: String, region: String,
     leaderboard: List[LeaderboardEntry]): Unit = {
+    val realmIds: Map[String, Int] = db.getRealmIds(region, true)
     val rows = leaderboard.foldLeft(List[List[Any]]()) { (l, entry) =>
       l.:+(List(
         entry.ranking,
@@ -152,7 +153,7 @@ object PlayerUpdater {
         entry.seasonWins,
         entry.seasonLosses,
         entry.name,
-        entry.realmSlug))
+        realmIds(entry.realmSlug)))
     }
 
     db.updateBracket(bracket, region, rows)

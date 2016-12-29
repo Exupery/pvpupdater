@@ -4,8 +4,6 @@ import java.sql.{ Connection, DriverManager, PreparedStatement, ResultSet, SQLEx
 
 import org.slf4j.{ Logger, LoggerFactory }
 
-import com.pvpleaderboard.updater.NonApiData.slugifyRealm
-
 /**
  * Handles database CRUD operations.
  */
@@ -141,7 +139,6 @@ class DbHandler {
   }
 
   def updateBracket(bracket: String, region: String, values: List[List[Any]]): Int = {
-    val realmIds: Map[String, Int] = getRealmIds(region)
     val regionUpper: String = region.toUpperCase()
     val db: Connection = DriverManager.getConnection(DB_URL)
     db.setAutoCommit(false)
@@ -163,11 +160,7 @@ class DbHandler {
       var idx: Int = 1
       values.foreach { row =>
         row.foreach { value =>
-          if (idx == row.size) {
-            stmt.setInt(idx, realmIds(value.toString()))
-          } else {
-            stmt.setObject(idx, value)
-          }
+          stmt.setObject(idx, value)
           idx += 1
         }
         idx = 1
@@ -269,16 +262,22 @@ class DbHandler {
     return Map.empty
   }
 
-  def getRealmIds(region: String): Map[String, Int] = {
-    val sql: String = "SELECT slug, id FROM realms WHERE region=?"
+  /**
+   * Returns a map of realm IDs for the given {@code region} using
+   * the realm slug as the key if {@code slug == true}, otherwise
+   * the name of the realm will be used.
+   */
+  def getRealmIds(region: String, slug: Boolean): Map[String, Int] = {
+    val sql: String = "SELECT name, slug, id FROM realms WHERE region=?"
     val db: Connection = DriverManager.getConnection(DB_URL)
 
     try {
       val stmt: PreparedStatement = db.prepareStatement(sql)
       stmt.setString(1, region.toUpperCase())
       val rs: ResultSet = stmt.executeQuery()
+      val col: String = if (slug) "slug" else "name"
       return Iterator.continually(rs.next()).takeWhile(identity)
-        .map(_ => rs.getString("slug") -> rs.getInt("id")).toMap
+        .map(_ => rs.getString(col) -> rs.getInt("id")).toMap
     } catch {
       case sqle: SQLException => logSqlException(sqle)
     } finally {
