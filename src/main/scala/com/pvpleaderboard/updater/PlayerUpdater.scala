@@ -48,20 +48,25 @@ object PlayerUpdater {
 
     val fullLeaderboard: List[LeaderboardEntry] = response.get.extract[Leaderboard].rows
     logger.debug("Found {} {} players", fullLeaderboard.size, bracket)
-    val leaderboard: List[LeaderboardEntry] =
-      fullLeaderboard.take(maxPerBracket.getOrElse(fullLeaderboard.size))
+    val leaderboard: List[LeaderboardEntry] = if (maxPerBracket.isDefined) {
+      fullLeaderboard.take(maxPerBracket.get)
+    } else {
+      fullLeaderboard
+    }
 
     importPlayers(leaderboard, api)
     updateLeaderboard(bracket, api.region, leaderboard)
   }
 
   private def importPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): Unit = {
+    logger.debug("Importing {} players", leaderboard.size)
     val path: String = "character/%s/%s"
     val players: List[Player] = leaderboard.foldLeft(List[Player]()) { (list, entry) =>
       val response: Option[JValue] =
         api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
       Try(list.:+(response.get.extract[Player])).getOrElse(list)
     }
+    logger.debug("Found {} players", players.size)
     val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
     players.foreach(p => p.realmId = realmIds(p.realm))
 
@@ -97,7 +102,12 @@ object PlayerUpdater {
 
     db.upsert("players", columns, rows, Option("players_name_realm_id_key"))
     val playerIds: Map[String, Int] = db.getPlayerIds(players.map(p => (p.name, p.realmId)))
-    players.foreach(p => p.playerId = playerIds.getOrElse(p.name + p.realmId, -1))
+
+    val noId: Int = -1
+    logger.debug("Mapping {} player IDs", playerIds.size)
+    players.foreach(p => p.playerId = playerIds.getOrElse(p.name + p.realmId, noId))
+    logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
+
     insertPlayersTalents(players)
     players.grouped(1000).foreach(insertPlayersAchievements)
   }

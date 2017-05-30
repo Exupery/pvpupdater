@@ -64,6 +64,7 @@ class DbHandler {
     if (columns.isEmpty || values.isEmpty) {
       return 0
     }
+    logger.debug(s"Upserting ${values.size} rows")
     val cols: String = columns.mkString(",")
 
     val valString = "(" + (List.fill(values.head.size)("?").mkString(",")) + ")"
@@ -140,6 +141,7 @@ class DbHandler {
 
   def updateBracket(bracket: String, region: String, values: List[List[Any]]): Int = {
     val regionUpper: String = region.toUpperCase()
+    logger.debug(s"Updating ${regionUpper} ${bracket} with ${values.size} rows")
     val db: Connection = DriverManager.getConnection(DB_URL)
     db.setAutoCommit(false)
 
