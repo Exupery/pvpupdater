@@ -87,10 +87,10 @@ CREATE TABLE leaderboards (
   season_wins SMALLINT,
   season_losses SMALLINT,
   last_update TIMESTAMP DEFAULT NOW(),
-  PRIMARY KEY (bracket, region, ranking),
-  UNIQUE (bracket, region, player_id)
+  PRIMARY KEY (bracket, region, player_id)
 );
 
+CREATE INDEX ON leaderboards (ranking);
 CREATE INDEX ON leaderboards (rating);
 
 CREATE TABLE achievements (
