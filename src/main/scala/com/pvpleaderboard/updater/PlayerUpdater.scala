@@ -1,5 +1,10 @@
 package com.pvpleaderboard.updater
 
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 import scala.util.Try
 
 import org.slf4j.{ Logger, LoggerFactory }
@@ -60,15 +65,7 @@ object PlayerUpdater {
 
   private def importPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): Unit = {
     logger.debug("Importing {} players", leaderboard.size)
-    val path: String = "character/%s/%s"
-    val players: List[Player] = leaderboard.foldLeft(List[Player]()) { (list, entry) =>
-      val response: Option[JValue] =
-        api.get(String.format(path, entry.realmSlug, entry.name), "fields=talents,guild,achievements")
-      Try(list.:+(response.get.extract[Player])).getOrElse(list)
-    }
-    logger.debug("Found {} players", players.size)
-    val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
-    players.foreach(p => p.realmId = realmIds(p.realm))
+    val players: List[Player] = getPlayers(leaderboard, api)
 
     val columns: List[String] = List(
       "name",
@@ -110,6 +107,29 @@ object PlayerUpdater {
 
     insertPlayersTalents(players)
     players.grouped(1000).foreach(insertPlayersAchievements)
+  }
+
+  private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
+    val groupSize: Int = leaderboard.size / 6
+    val path: String = "character/%s/%s"
+    val field: String = "fields=talents,guild,achievements"
+    val futures = leaderboard.grouped(groupSize).map(group => {
+      Future[List[Player]] {
+        group.foldLeft(List[Player]()) { (list, entry) =>
+          val response: Option[JValue] =
+            api.get(String.format(path, entry.realmSlug, entry.name), field)
+          Try(list.:+(response.get.extract[Player])).getOrElse(list)
+        }
+      }
+    }).toList
+    logger.debug("Waiting on {} futures", futures.size)
+    val players = futures.map(Await.result[List[Player]](_, 12 hours)).flatten
+    logger.debug("Found {} players", players.size)
+
+    val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
+    players.foreach(p => p.realmId = realmIds(p.realm))
+
+    return players
   }
 
   private def getActiveTree(player: Player): Option[TalentTree] = {
