@@ -32,6 +32,9 @@ object PlayerUpdater {
     Option.empty
   }
 
+  private val DEFAULT_NUM_THREADS: Int = 5;
+  private val numThreads: Int = Try(sys.env("NUM_THREADS").toInt).getOrElse(DEFAULT_NUM_THREADS)
+
   private lazy val classes: Map[Int, String] = getClasses()
 
   def update(): Unit = {
@@ -110,7 +113,7 @@ object PlayerUpdater {
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
-    val groupSize: Int = leaderboard.size / 6
+    val groupSize: Int = leaderboard.size / numThreads
     val path: String = "character/%s/%s"
     val field: String = "fields=talents,guild,achievements"
     val futures = leaderboard.grouped(groupSize).map(group => {
