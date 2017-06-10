@@ -62,6 +62,11 @@ object PlayerUpdater {
       fullLeaderboard
     }
 
+    if (leaderboard.isEmpty) {
+      logger.warn("Empty {} leaderboard", bracket)
+      return
+    }
+
     importPlayers(leaderboard, api)
     updateLeaderboard(bracket, api.region, leaderboard)
   }
