@@ -114,7 +114,7 @@ object PlayerUpdater {
     logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
 
     insertPlayersTalents(players)
-    players.grouped(1000).foreach(insertPlayersAchievements)
+    players.grouped(500).foreach(insertPlayersAchievements)
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
