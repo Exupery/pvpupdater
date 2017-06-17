@@ -195,7 +195,7 @@ object NonPlayerUpdater {
       })
     }.flatten
     logger.debug("Found {} talents", rows.size)
-    db.upsert("talents", columns, rows)
+    db.insertTalents(rows)
   }
 
   private def importPvPTalents(): Unit = {

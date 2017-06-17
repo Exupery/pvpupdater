@@ -97,6 +97,38 @@ class DbHandler {
     return inserted
   }
 
+  def insertTalents(values: List[List[Any]]): Int = {
+    val db: Connection = DriverManager.getConnection(DB_URL)
+    db.setAutoCommit(false)
+
+    val sql: String = """
+      INSERT INTO talents (spell_id, class_id, spec_id, name, description, icon, tier, col)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+    val deleteSql: String = "TRUNCATE TABLE talents CASCADE"
+
+    try {
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val deleteStmt: PreparedStatement = db.prepareStatement(deleteSql)
+      values.foreach { row =>
+        var idx: Int = 1
+        row.foreach { v => stmt.setObject(idx, v); idx += 1 }
+        stmt.addBatch()
+      }
+
+      deleteStmt.execute()
+      val inserted: Int = stmt.executeBatch().foldLeft(0)((s, i) => s + i)
+      db.commit()
+      logger.debug(s"Inserted ${inserted} rows in talents")
+      return inserted
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+
+    return 0
+  }
+
   def insertPlayersTalents(ids: List[(Int, Int)]): Int = {
     val db: Connection = DriverManager.getConnection(DB_URL)
     db.setAutoCommit(false)
