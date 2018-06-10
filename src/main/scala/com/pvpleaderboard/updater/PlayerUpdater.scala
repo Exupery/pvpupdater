@@ -32,8 +32,11 @@ object PlayerUpdater {
     Option.empty
   }
 
-  private val DEFAULT_NUM_THREADS: Int = 5;
+  private val DEFAULT_NUM_THREADS: Int = 5
   private val numThreads: Int = Try(sys.env("NUM_THREADS").toInt).getOrElse(DEFAULT_NUM_THREADS)
+
+  private val DEFAULT_ACHIEV_SIZE: Int = 500
+  private val achievGroupSize: Int = Try(sys.env("ACHIEV_SIZE").toInt).getOrElse(DEFAULT_ACHIEV_SIZE)
 
   private lazy val classes: Map[Int, String] = getClasses()
 
@@ -114,7 +117,7 @@ object PlayerUpdater {
     logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
 
     insertPlayersTalents(players)
-    players.grouped(500).foreach(insertPlayersAchievements)
+    players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
