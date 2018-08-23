@@ -5,6 +5,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
+import scala.math.max
 import scala.util.Try
 
 import org.slf4j.{ Logger, LoggerFactory }
@@ -121,7 +122,7 @@ object PlayerUpdater {
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
-    val groupSize: Int = leaderboard.size / numThreads
+    val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
     val path: String = "character/%s/%s"
     val field: String = "fields=talents,guild,achievements"
     val futures = leaderboard.grouped(groupSize).map(group => {
