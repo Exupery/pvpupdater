@@ -131,6 +131,36 @@ CREATE TABLE players_stats (
   parry REAL
 );
 
+CREATE TABLE items (
+  id INTEGER PRIMARY KEY,
+  name VARCHAR(128),
+  icon VARCHAR(128)
+);
+
+ CREATE TABLE players_items (
+  player_id INTEGER PRIMARY KEY REFERENCES players (id),
+  average_item_level INTEGER,
+  average_item_level_equipped INTEGER,
+  head INTEGER,
+  neck INTEGER,
+  shoulder INTEGER,
+  back INTEGER,
+  chest INTEGER,
+  shirt INTEGER,
+  tabard INTEGER,
+  wrist INTEGER,
+  hands INTEGER,
+  waist INTEGER,
+  legs INTEGER,
+  feet INTEGER,
+  finger1 INTEGER,
+  finger2 INTEGER,
+  trinket1 INTEGER,
+  trinket2 INTEGER,
+  mainhand INTEGER,
+  offhand INTEGER
+);
+
 CREATE TABLE metadata (
   key VARCHAR(32) PRIMARY KEY,
   value VARCHAR(512) NOT NULL DEFAULT '',

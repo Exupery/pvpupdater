@@ -1,5 +1,6 @@
 package com.pvpleaderboard.updater
 
+import scala.collection.mutable.HashSet
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -119,13 +120,15 @@ object PlayerUpdater {
 
     insertPlayersTalents(players)
     insertPlayersStats(players)
+    insertPlayersItems(players)
+    insertItems(players)
     players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
     val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
     val path: String = "character/%s/%s"
-    val field: String = "fields=talents,guild,achievements,stats"
+    val field: String = "fields=talents,guild,achievements,stats,items"
     val futures = leaderboard.grouped(groupSize).map(group => {
       Future[List[Player]] {
         group.foldLeft(List[Player]()) { (list, entry) =>
@@ -175,6 +178,63 @@ object PlayerUpdater {
     }
 
     db.upsert("players_stats", columns, rows)
+  }
+
+  private def insertPlayersItems(players: List[Player]): Unit = {
+    val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped",
+      "head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist", "hands", "waist", "legs",
+      "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
+    val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
+      val id = p.playerId
+      val i = p.items
+      val shirtId = if (i.shirt.nonEmpty) i.shirt.get.id else null
+      val tabardId = if (i.tabard.nonEmpty) i.tabard.get.id else null
+      val offHandId = if (i.offHand.nonEmpty) i.offHand.get.id else null
+      l.:+(List(id, i.averageItemLevel, i.averageItemLevelEquipped, i.head.id, i.neck.id, i.shoulder.id,
+        i.back.id, i.chest.id, shirtId, tabardId, i.wrist.id, i.hands.id, i.waist.id, i.legs.id, i.feet.id,
+        i.finger1.id, i.finger2.id, i.trinket1.id, i.trinket2.id, i.mainHand.id, offHandId))
+    }
+
+    db.upsert("players_items", columns, rows)
+  }
+
+  private def insertItems(players: List[Player]): Unit = {
+    val items = players.foldLeft(HashSet[Item]()) { (s, p) =>
+      val i = p.items
+      if (i.shirt.nonEmpty) {
+        s.add(i.shirt.get)
+      }
+      if (i.tabard.nonEmpty) {
+        s.add(i.tabard.get)
+      }
+      if (i.offHand.nonEmpty) {
+        s.add(i.offHand.get)
+      }
+      s.add(i.head)
+      s.add(i.neck)
+      s.add(i.shoulder)
+      s.add(i.back)
+      s.add(i.chest)
+      s.add(i.wrist)
+      s.add(i.hands)
+      s.add(i.waist)
+      s.add(i.legs)
+      s.add(i.feet)
+      s.add(i.finger1)
+      s.add(i.finger2)
+      s.add(i.trinket1)
+      s.add(i.trinket2)
+      s.add(i.mainHand)
+
+      s
+    }
+
+    val columns: List[String] = List("id", "name", "icon")
+    val rows = items.foldLeft(List[List[Any]]()) { (l, i) =>
+      l.:+(List(i.id, i.name, i.icon))
+    }
+
+    db.upsert("items", columns, rows)
   }
 
   private def insertPlayersAchievements(players: List[Player]): Unit = {
@@ -247,7 +307,7 @@ case class LeaderboardEntry(ranking: Int, rating: Int, name: String, realmSlug: 
 case class Player(name: String, realm: String, `class`: Int, race: Int, gender: Int,
     achievementPoints: Int, thumbnail: String, faction: Int, totalHonorableKills: Int,
     guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree],
-    stats: Stats) {
+    stats: Stats, items: Items) {
   var realmId: Int = -1
   var playerId: Int = -1
 }
@@ -257,3 +317,8 @@ case class CompletedAchievements(achievementsCompleted: List[Int],
 case class TalentTree(selected: Option[Boolean], talents: List[Talent], spec: TalentSpec)
 case class Stats(str: Int, agi: Int, int: Int, sta: Int, critRating: Int, hasteRating: Int,
   masteryRating: Int, versatility: Int, leechRating: Double, dodge: Double, parry: Double)
+case class Item(id: Int, name: String, icon: String)
+case class Items(averageItemLevel: Int, averageItemLevelEquipped: Int, head: Item, neck: Item,
+  shoulder: Item, back: Item, chest: Item, shirt: Option[Item], tabard: Option[Item], wrist: Item, hands: Item,
+  waist: Item, legs: Item, feet: Item, finger1: Item, finger2: Item, trinket1: Item, trinket2: Item,
+  mainHand: Item, offHand: Option[Item])
