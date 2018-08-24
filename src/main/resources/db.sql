@@ -116,6 +116,21 @@ CREATE TABLE players_talents (
   PRIMARY KEY (player_id, talent_id)
 );
 
+CREATE TABLE players_stats (
+  player_id INTEGER PRIMARY KEY REFERENCES players (id),
+  strength INTEGER,
+  agility INTEGER,
+  intellect INTEGER,
+  stamina INTEGER,
+  critical_strike INTEGER,
+  haste INTEGER,
+  mastery INTEGER,
+  versatility INTEGER,
+  leech REAL,
+  dodge REAL,
+  parry REAL
+);
+
 CREATE TABLE metadata (
   key VARCHAR(32) PRIMARY KEY,
   value VARCHAR(512) NOT NULL DEFAULT '',

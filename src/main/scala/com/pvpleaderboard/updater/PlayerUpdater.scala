@@ -118,13 +118,14 @@ object PlayerUpdater {
     logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
 
     insertPlayersTalents(players)
+    insertPlayersStats(players)
     players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
   }
 
   private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
     val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
     val path: String = "character/%s/%s"
-    val field: String = "fields=talents,guild,achievements"
+    val field: String = "fields=talents,guild,achievements,stats"
     val futures = leaderboard.grouped(groupSize).map(group => {
       Future[List[Player]] {
         group.foldLeft(List[Player]()) { (list, entry) =>
@@ -161,6 +162,19 @@ object PlayerUpdater {
     }.flatten
 
     db.insertPlayersTalents(rows)
+  }
+
+  private def insertPlayersStats(players: List[Player]): Unit = {
+    val columns: List[String] = List("player_id", "strength", "agility", "intellect", "stamina",
+      "critical_strike", "haste", "mastery", "versatility", "leech", "dodge", "parry")
+    val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
+      val id = p.playerId
+      val s = p.stats
+      l.:+(List(id, s.str, s.agi, s.int, s.sta, s.critRating, s.hasteRating, s.masteryRating,
+        s.versatility, s.leechRating, s.dodge, s.parry))
+    }
+
+    db.upsert("players_stats", columns, rows)
   }
 
   private def insertPlayersAchievements(players: List[Player]): Unit = {
@@ -232,7 +246,8 @@ case class LeaderboardEntry(ranking: Int, rating: Int, name: String, realmSlug: 
 
 case class Player(name: String, realm: String, `class`: Int, race: Int, gender: Int,
     achievementPoints: Int, thumbnail: String, faction: Int, totalHonorableKills: Int,
-    guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree]) {
+    guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree],
+    stats: Stats) {
   var realmId: Int = -1
   var playerId: Int = -1
 }
@@ -240,3 +255,5 @@ case class Guild(name: String)
 case class CompletedAchievements(achievementsCompleted: List[Int],
   achievementsCompletedTimestamp: List[Long])
 case class TalentTree(selected: Option[Boolean], talents: List[Talent], spec: TalentSpec)
+case class Stats(str: Int, agi: Int, int: Int, sta: Int, critRating: Int, hasteRating: Int,
+  masteryRating: Int, versatility: Int, leechRating: Double, dodge: Double, parry: Double)
