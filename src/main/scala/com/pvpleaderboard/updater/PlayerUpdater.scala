@@ -59,13 +59,8 @@ object PlayerUpdater {
       return
     }
 
-    val fullLeaderboard: List[LeaderboardEntry] = response.get.extract[Leaderboard].rows
-    logger.debug("Found {} {} players", fullLeaderboard.size, bracket)
-    val leaderboard: List[LeaderboardEntry] = if (maxPerBracket.isDefined) {
-      fullLeaderboard.take(maxPerBracket.get)
-    } else {
-      fullLeaderboard
-    }
+    val leaderboard: Array[LeaderboardEntry] =
+      response.get.extract[Leaderboard].rows.take(maxPerBracket.getOrElse(Int.MaxValue)).toArray
 
     if (leaderboard.isEmpty) {
       logger.warn("Empty {} leaderboard", bracket)
@@ -76,9 +71,9 @@ object PlayerUpdater {
     updateLeaderboard(bracket, api.region, leaderboard)
   }
 
-  private def importPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): Unit = {
+  private def importPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Unit = {
     logger.debug("Importing {} players", leaderboard.size)
-    val players: List[Player] = getPlayers(leaderboard, api)
+    val players: Array[Player] = getPlayers(leaderboard, api)
 
     val columns: List[String] = List(
       "name",
@@ -125,7 +120,7 @@ object PlayerUpdater {
     players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
   }
 
-  private def getPlayers(leaderboard: List[LeaderboardEntry], api: ApiHandler): List[Player] = {
+  private def getPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Array[Player] = {
     val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
     val path: String = "character/%s/%s"
     val field: String = "fields=talents,guild,achievements,stats,items"
@@ -139,7 +134,7 @@ object PlayerUpdater {
       }
     }).toList
     logger.debug("Waiting on {} futures", futures.size)
-    val players = futures.map(Await.result[List[Player]](_, 12 hours)).flatten
+    val players = futures.map(Await.result[List[Player]](_, 12 hours)).flatten.toArray
     logger.debug("Found {} players", players.size)
 
     val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
@@ -152,7 +147,7 @@ object PlayerUpdater {
     return player.talents.filter(_.selected.getOrElse(false)).headOption
   }
 
-  private def insertPlayersTalents(players: List[Player]): Unit = {
+  private def insertPlayersTalents(players: Array[Player]): Unit = {
     val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
       val activeTree = getActiveTree(p)
       val id = p.playerId
@@ -167,7 +162,7 @@ object PlayerUpdater {
     db.insertPlayersTalents(rows)
   }
 
-  private def insertPlayersStats(players: List[Player]): Unit = {
+  private def insertPlayersStats(players: Array[Player]): Unit = {
     val columns: List[String] = List("player_id", "strength", "agility", "intellect", "stamina",
       "critical_strike", "haste", "mastery", "versatility", "leech", "dodge", "parry")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
@@ -180,7 +175,7 @@ object PlayerUpdater {
     db.upsert("players_stats", columns, rows)
   }
 
-  private def insertPlayersItems(players: List[Player]): Unit = {
+  private def insertPlayersItems(players: Array[Player]): Unit = {
     val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped",
       "head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist", "hands", "waist", "legs",
       "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
@@ -198,7 +193,7 @@ object PlayerUpdater {
     db.upsert("players_items", columns, rows)
   }
 
-  private def insertItems(players: List[Player]): Unit = {
+  private def insertItems(players: Array[Player]): Unit = {
     val items = players.foldLeft(HashSet[Item]()) { (s, p) =>
       val i = p.items
       if (i.shirt.nonEmpty) {
@@ -237,8 +232,8 @@ object PlayerUpdater {
     db.upsert("items", columns, rows)
   }
 
-  private def insertPlayersAchievements(players: List[Player]): Unit = {
-    val pvpIds: Set[Int] = db.getAchievementsIds()
+  private def insertPlayersAchievements(players: Array[Player]): Unit = {
+    val pvpIds: Array[Int] = db.getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
       val id = p.playerId
       if (id > -1) {
@@ -260,7 +255,7 @@ object PlayerUpdater {
   }
 
   private def updateLeaderboard(bracket: String, region: String,
-    leaderboard: List[LeaderboardEntry]): Unit = {
+    leaderboard: Array[LeaderboardEntry]): Unit = {
     val realmIds: Map[String, Int] = db.getRealmIds(region, true)
     val rows = leaderboard.foldLeft(List[List[Any]]()) { (l, entry) =>
       l.:+(List(

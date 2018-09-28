@@ -263,7 +263,7 @@ class DbHandler {
     }
   }
 
-  def getPlayerIds(players: List[(String, Int)]): Map[String, Int] = {
+  def getPlayerIds(players: Array[(String, Int)]): Map[String, Int] = {
     logger.debug("Getting player IDs for {} players", players.size)
     val sql: String = "SELECT id FROM players WHERE name=? AND realm_id=?"
     val db: Connection = DriverManager.getConnection(DB_URL)
@@ -321,7 +321,7 @@ class DbHandler {
     return Map.empty
   }
 
-  def getAchievementsIds(): Set[Int] = {
+  def getAchievementsIds(): Array[Int] = {
     val sql: String = "SELECT id FROM achievements"
     val db: Connection = DriverManager.getConnection(DB_URL)
 
@@ -330,14 +330,14 @@ class DbHandler {
       val rs: ResultSet = stmt.executeQuery()
 
       return Iterator.continually(rs.next()).takeWhile(identity)
-        .map(_ => rs.getInt(1)).toSet
+        .map(_ => rs.getInt(1)).toArray
     } catch {
       case sqle: SQLException => logSqlException(sqle)
     } finally {
       db.close()
     }
 
-    return Set.empty
+    return Array[Int]()
   }
 
   private def logSqlException(sqle: SQLException): Unit = {
