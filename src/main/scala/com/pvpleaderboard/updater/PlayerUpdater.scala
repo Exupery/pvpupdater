@@ -125,16 +125,16 @@ object PlayerUpdater {
     val path: String = "character/%s/%s"
     val field: String = "fields=talents,guild,achievements,stats,items"
     val futures = leaderboard.grouped(groupSize).map(group => {
-      Future[List[Player]] {
-        group.foldLeft(List[Player]()) { (list, entry) =>
+      Future[Array[Player]] {
+        group.foldLeft(Array[Player]()) { (array, entry) =>
           val response: Option[JValue] =
             api.get(String.format(path, entry.realmSlug, entry.name), field)
-          Try(list.:+(response.get.extract[Player])).getOrElse(list)
+          Try(array.:+(response.get.extract[Player])).getOrElse(array)
         }
       }
     }).toList
     logger.debug("Waiting on {} futures", futures.size)
-    val players = futures.map(Await.result[List[Player]](_, 12 hours)).flatten.toArray
+    val players = futures.map(Await.result[Array[Player]](_, 12 hours)).flatten.toArray
     logger.debug("Found {} players", players.size)
 
     val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
