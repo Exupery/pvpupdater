@@ -237,9 +237,9 @@ object PlayerUpdater {
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
       val id = p.playerId
       if (id > -1) {
-        val timestamps: List[Long] = p.achievements.achievementsCompletedTimestamp
+        val timestamps: Array[Long] = p.achievements.achievementsCompletedTimestamp
         var idx: Int = -1
-        l.:+(p.achievements.achievementsCompleted.map { achievementId =>
+        l.:+(p.achievements.achievementsCompleted.toList.map { achievementId =>
           idx += 1
           if (pvpIds.contains(achievementId)) {
             List(id, achievementId, timestamps(idx) / 1000)
@@ -307,8 +307,7 @@ case class Player(name: String, realm: String, `class`: Int, race: Int, gender: 
   var playerId: Int = -1
 }
 case class Guild(name: String)
-case class CompletedAchievements(achievementsCompleted: List[Int],
-  achievementsCompletedTimestamp: List[Long])
+case class CompletedAchievements(achievementsCompleted: Array[Int], achievementsCompletedTimestamp: Array[Long])
 case class TalentTree(selected: Option[Boolean], talents: List[Talent], spec: TalentSpec)
 case class Stats(str: Int, agi: Int, int: Int, sta: Int, critRating: Int, hasteRating: Int,
   masteryRating: Int, versatility: Int, leechRating: Double, dodge: Double, parry: Double)
