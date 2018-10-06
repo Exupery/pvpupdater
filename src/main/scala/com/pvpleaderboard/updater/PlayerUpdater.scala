@@ -134,7 +134,7 @@ object PlayerUpdater {
       }
     }).toList
     logger.debug("Waiting on {} futures", futures.size)
-    val players = futures.map(Await.result[Array[Player]](_, 12 hours)).flatten.toArray
+    val players = futures.map(Await.result[Array[Player]](_, 3 hours)).flatten.toArray
     logger.debug("Found {} players", players.size)
 
     val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
