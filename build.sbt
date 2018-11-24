@@ -2,6 +2,8 @@ name := "pvpupdater"
 
 version := "1.0"
 
+scalaVersion := "2.11.12"
+
 enablePlugins(JavaAppPackaging)
 
 libraryDependencies += "ch.qos.logback" %  "logback-classic" % "1.2.3"
