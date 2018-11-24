@@ -75,6 +75,11 @@ object PlayerUpdater {
     logger.debug("Importing {} players", leaderboard.size)
     val players: Array[Player] = getPlayers(leaderboard, api)
 
+    if (players.isEmpty) {
+      logger.warn("No player data retrieved, expected {}", leaderboard.size)
+      return
+    }
+
     val columns: List[String] = List(
       "name",
       "class_id",
