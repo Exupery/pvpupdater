@@ -5,22 +5,27 @@ import java.io.IOException
 import scala.io.Source
 import scala.util.Try
 
+import scalaj.http.Http
+
 import org.slf4j.{ Logger, LoggerFactory }
 
-import net.liftweb.json.{ JValue, parse }
+import net.liftweb.json.{ JField, JValue, parse }
 import net.liftweb.json.JsonParser.ParseException
 
 /**
  * Send requests and receive responses to/from the Blizzard API
  */
 class ApiHandler(val region: String) {
-  private val BASE_URI: String = String.format("https://%s.api.battle.net/wow/", region)
-  private val API_KEY: String = sys.env("BATTLE_NET_API_KEY")
+  private val BASE_URI: String = String.format("https://%s.api.blizzard.com/wow/", region)
+  private val OAUTH_URI: String = String.format("https://us.battle.net/oauth/token", region)
+  private val CLIENT_ID: String = sys.env("BATTLE_NET_CLIENT_ID")
+  private val SECRET: String = sys.env("BATTLE_NET_SECRET")
+  private val TOKEN: String = createToken
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def get(path: String, params: String = ""): Option[JValue] = {
-    val requiredParams: String = String.format("?locale=en_US&apikey=%s", API_KEY)
+    val requiredParams: String = String.format("?locale=en_US&access_token=%s", TOKEN)
     val allParams: String = if (params.isEmpty()) {
       requiredParams
     } else {
@@ -49,6 +54,22 @@ class ApiHandler(val region: String) {
     }
 
     return Option.empty
+  }
+
+  private def createToken(): String = {
+    val response = Http(OAUTH_URI)
+      .postForm(Seq("grant_type" -> "client_credentials"))
+      .auth(CLIENT_ID, SECRET)
+      .asString
+    if (response.isError) {
+      throw new IllegalStateException(response.body)
+    }
+    val json: JValue = parse(response.body)
+    val oauth: Option[JField] = json.findField(f => f.name.equals("access_token"))
+    if (oauth.isEmpty) {
+      throw new IllegalStateException("No access token present: " + response.body)
+    }
+    return oauth.get.value.values.toString
   }
 }
 
