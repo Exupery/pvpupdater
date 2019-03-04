@@ -166,3 +166,15 @@ CREATE TABLE metadata (
   value VARCHAR(512) NOT NULL DEFAULT '',
   last_update TIMESTAMP DEFAULT NOW()
 );
+
+-- create a stored proc to remove players (and associated data) for those
+-- that are not currently on a leaderboard
+CREATE OR REPLACE FUNCTION purge_old_players()
+RETURNS VOID LANGUAGE plpgsql AS $proc$
+BEGIN
+  DELETE FROM players_achievements WHERE player_id NOT IN (SELECT player_id FROM leaderboards);
+  DELETE FROM players_talents WHERE player_id NOT IN (SELECT player_id FROM leaderboards);
+  DELETE FROM players_stats WHERE player_id NOT IN (SELECT player_id FROM leaderboards);
+  DELETE FROM players_items WHERE player_id NOT IN (SELECT player_id FROM leaderboards);
+  DELETE FROM players WHERE id NOT IN (SELECT player_id FROM leaderboards);
+END; $proc$;
