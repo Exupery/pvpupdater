@@ -79,11 +79,13 @@ object NonPlayerUpdater {
 
     val achievementGroups: List[AchievementGroup] = response.get.extract[Achievements].achievements
     val achievements: List[Achievement] = achievementGroups
-      .filter(_.name.contains("Player vs. Player"))
+      .filter(g => g.name.contains("Player vs. Player") || g.name.contains("Feats of Strength"))
       .map(_.categories)
       .flatten
       .filter(c => {
-        c.name.equalsIgnoreCase("Rated Battleground") || c.name.equalsIgnoreCase("Arena")
+        c.name.equalsIgnoreCase("Rated Battleground") ||
+        c.name.equalsIgnoreCase("Arena") ||
+        c.name.equalsIgnoreCase("Player vs. Player")
       })
       .map(_.achievements)
       .flatten
