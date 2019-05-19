@@ -238,7 +238,7 @@ object PlayerUpdater {
   }
 
   private def insertPlayersAchievements(players: Array[Player]): Unit = {
-    val pvpIds: Array[Int] = db.getAchievementsIds()
+    val pvpIds: Set[Int] = getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
       val id = p.playerId
       if (id > -1) {
@@ -257,6 +257,15 @@ object PlayerUpdater {
       }
     }.flatten.filter(!_.isEmpty)
     db.insertPlayersAchievements(rows)
+  }
+
+  def getAchievementsIds(): Set[Int] = {
+    return Set(
+      // Arena achievements
+      401, 405, 404, 1159, 1160, 1161, 5266, 5267, 876, 2090, 2093, 2092, 2091,
+      // RBG achievements
+      5329, 5326, 5339, 5353, 5341, 5355, 5343, 5356, 6942, 6941
+      )
   }
 
   private def updateLeaderboard(bracket: String, region: String,
