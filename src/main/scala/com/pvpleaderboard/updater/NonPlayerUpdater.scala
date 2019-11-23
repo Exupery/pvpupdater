@@ -13,18 +13,18 @@ import net.liftweb.json.{ DefaultFormats, JValue }
 object NonPlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  private val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
   private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
 
-  def update(): Unit = {
+  def update(apis: List[ApiHandler]): Unit = {
+    val sharedApi: ApiHandler = apis.head // Only realms differ per handler (i.e. region)
     logger.info("Updating non-player data")
     importFactions()
     apis.foreach(importRealms)
-    importRaces()
-    importAchievements()
-    val classes: Map[String, PlayerClass] = importClasses()
-    importTalentsAndSpecs(classes)
+    importRaces(sharedApi)
+    importAchievements(sharedApi)
+    val classes: Map[String, PlayerClass] = importClasses(sharedApi)
+    importTalentsAndSpecs(sharedApi, classes)
     importPvPTalents()
   }
 
@@ -54,8 +54,8 @@ object NonPlayerUpdater {
     db.upsert("realms", columns, rows, Option("realms_slug_region_key"))
   }
 
-  private def importRaces(): Unit = {
-    val response: Option[JValue] = apis.head.get("data/character/races")
+  private def importRaces(api: ApiHandler): Unit = {
+    val response: Option[JValue] = api.get("data/character/races")
     if (response.isEmpty) {
       logger.warn("Skipping races import")
       return
@@ -70,8 +70,8 @@ object NonPlayerUpdater {
     db.upsert("races", columns, rows)
   }
 
-  private def importAchievements(): Unit = {
-    val response: Option[JValue] = apis.head.get("data/character/achievements")
+  private def importAchievements(api: ApiHandler): Unit = {
+    val response: Option[JValue] = api.get("data/character/achievements")
     if (response.isEmpty) {
       logger.warn("Skipping achievements import")
       return
@@ -97,8 +97,8 @@ object NonPlayerUpdater {
     db.upsert("achievements", columns, rows)
   }
 
-  private def importClasses(): Map[String, PlayerClass] = {
-    val response: Option[JValue] = apis.head.get("data/character/classes")
+  private def importClasses(api: ApiHandler): Map[String, PlayerClass] = {
+    val response: Option[JValue] = api.get("data/character/classes")
     if (response.isEmpty) {
       logger.warn("Skipping classes import")
       return Map.empty
@@ -114,8 +114,8 @@ object NonPlayerUpdater {
     return classes.map(c => slugify(c.name) -> c).toMap
   }
 
-  private def importTalentsAndSpecs(classes: Map[String, PlayerClass]): Unit = {
-    val response: Option[JValue] = apis.head.get("data/talents")
+  private def importTalentsAndSpecs(api: ApiHandler, classes: Map[String, PlayerClass]): Unit = {
+    val response: Option[JValue] = api.get("data/talents")
     if (response.isEmpty) {
       logger.warn("Skipping talent and spec import")
       return

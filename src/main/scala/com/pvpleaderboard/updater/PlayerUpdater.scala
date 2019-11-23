@@ -22,7 +22,6 @@ import net.liftweb.json.JsonAST.JValue
 object PlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  private val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
   private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
 
@@ -40,9 +39,7 @@ object PlayerUpdater {
   private val DEFAULT_ACHIEV_SIZE: Int = 500
   private val achievGroupSize: Int = Try(sys.env("ACHIEV_SIZE").toInt).getOrElse(DEFAULT_ACHIEV_SIZE)
 
-  private lazy val classes: Map[Int, String] = getClasses()
-
-  def update(): Unit = {
+  def update(apis: List[ApiHandler]): Unit = {
     logger.info("Updating player data")
 
     apis.foreach { api =>
@@ -80,6 +77,8 @@ object PlayerUpdater {
       return
     }
 
+    val classes: Map[Int, String] = getClasses(api)
+
     val columns: List[String] = List(
       "name",
       "class_id",
@@ -93,7 +92,7 @@ object PlayerUpdater {
       "honorable_kills",
       "thumbnail")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
-      val spec = getSpec(p)
+      val spec = getSpec(classes, p)
       val guild = if (p.guild.isDefined) Option(p.guild.get.name) else Option.empty
 
       l.:+(List(
@@ -284,7 +283,7 @@ object PlayerUpdater {
     db.updateBracket(bracket, region, rows)
   }
 
-  private def getSpec(player: Player): Option[Int] = {
+  private def getSpec(classes: Map[Int, String], player: Player): Option[Int] = {
     val activeTree = getActiveTree(player)
 
     return if (activeTree.isDefined && activeTree.get.spec.name.isDefined) {
@@ -296,8 +295,8 @@ object PlayerUpdater {
     }
   }
 
-  private def getClasses(): Map[Int, String] = {
-    val response: Option[JValue] = apis.head.get("data/character/classes")
+  private def getClasses(api: ApiHandler): Map[Int, String] = {
+    val response: Option[JValue] = api.get("data/character/classes")
     if (response.isEmpty) {
       throw new IllegalStateException("Unable to create class ID map")
     }

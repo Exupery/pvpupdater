@@ -8,8 +8,9 @@ object Main {
   def main(args: Array[String]): Unit = {
     val start = System.currentTimeMillis() / 1000
     logger.info("Updating PvPLeaderboard DB")
-    NonPlayerUpdater.update()
-    PlayerUpdater.update()
+    val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
+    NonPlayerUpdater.update(apis)
+    PlayerUpdater.update(apis)
     val end = System.currentTimeMillis() / 1000
     val elapsed = end - start
     val durationMessage = if (elapsed < 180) {
