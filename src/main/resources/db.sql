@@ -178,3 +178,8 @@ BEGIN
   DELETE FROM players_items WHERE player_id NOT IN (SELECT player_id FROM leaderboards);
   DELETE FROM players WHERE id NOT IN (SELECT player_id FROM leaderboards);
 END; $proc$;
+
+-- Changes for WoW Game Data API migration
+ALTER TABLE realms DROP COLUMN battlegroup;
+ALTER TABLE realms DROP COLUMN timezone;
+ALTER TABLE realms DROP COLUMN type;

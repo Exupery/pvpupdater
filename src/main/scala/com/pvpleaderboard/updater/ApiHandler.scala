@@ -16,16 +16,39 @@ import net.liftweb.json.JsonParser.ParseException
  * Send requests and receive responses to/from the Blizzard API
  */
 class ApiHandler(val region: String) {
-  private val BASE_URI: String = String.format("https://%s.api.blizzard.com/wow/", region)
-  private val OAUTH_URI: String = String.format("https://us.battle.net/oauth/token", region)
+  private val BASE_URI: String = String.format("https://%s.api.blizzard.com", region)
+  private val OAUTH_URI: String = "https://us.battle.net/oauth/token"
   private val CLIENT_ID: String = sys.env("BATTLE_NET_CLIENT_ID")
   private val SECRET: String = sys.env("BATTLE_NET_SECRET")
   private val TOKEN: String = createToken
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
+  def getStatic(path: String, params: String = ""): Option[JValue] = {
+    val namespace: String = "static-" + region
+    val dataPath = "/data/wow/" + path
+    return get(dataPath, namespace, params)
+  }
+
+  def getDynamic(path: String, params: String = ""): Option[JValue] = {
+    val namespace: String = "dynamic-" + region
+    val dataPath = "/data/wow/" + path
+    return get(dataPath, namespace, params)
+  }
+
+  def getProfile(path: String, params: String = ""): Option[JValue] = {
+    val namespace: String = "profile-" + region
+    val profilePath = "/profile/wow/character/" + path
+    return get(profilePath, namespace, params)
+  }
+
   def get(path: String, params: String = ""): Option[JValue] = {
-    val requiredParams: String = String.format("?locale=en_US&access_token=%s", TOKEN)
+    // TODO DELETE AFTER PLAYER DATA CONVERTED TO getProfile
+    return getProfile(path, params)
+  }
+
+  private def get(path: String, namespace: String, params: String): Option[JValue] = {
+    val requiredParams: String = String.format("?locale=en_US&access_token=%s&namespace=%s", TOKEN, namespace)
     val allParams: String = if (params.isEmpty()) {
       requiredParams
     } else {
