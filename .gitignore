@@ -7,3 +7,5 @@
 target/
 bin/
 *.class
+.bloop/
+.metals/
