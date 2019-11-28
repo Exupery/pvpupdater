@@ -1,5 +1,10 @@
 package com.pvpleaderboard.updater
 
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.sql.Timestamp
+import java.time.Instant
+
 import scala.collection.mutable.HashSet
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -17,15 +22,13 @@ import net.liftweb.json.DefaultFormats
 import net.liftweb.json.JsonAST.JValue
 
 /**
- * Updates the player.
+ * Updates player info.
  */
 object PlayerUpdater {
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   private val db: DbHandler = new DbHandler()
   private implicit val formats = DefaultFormats
-
-  private val BRACKETS: List[String] = List("2v2", "3v3", "rbg")
 
   private val maxPerBracket: Option[Int] = if (sys.env.isDefinedAt("MAX_PER_BRACKET")) {
     Option(sys.env("MAX_PER_BRACKET").toInt)
@@ -43,21 +46,27 @@ object PlayerUpdater {
     logger.info("Updating player data")
 
     apis.foreach { api =>
-      BRACKETS.foreach(b => importBracket(b, api))
+      val season: Int = api.getDynamic("pvp-season/index").get.extract[Seasons].current_season.id
+      if (season <= 0) {
+        logger.info("No current PvP season")
+        return
+      }
+      val brackets: Brackets = api.getDynamic("pvp-season/" + season + "/pvp-leaderboard/index").get.extract[Brackets]
+      brackets.leaderboards.foreach(b => importBracket(season, b.name, api))
     }
     db.setUpdateTime()
   }
 
-  private def importBracket(bracket: String, api: ApiHandler): Unit = {
+  private def importBracket(season: Int, bracket: String, api: ApiHandler): Unit = {
     logger.info("Importing {} {}", api.region.toUpperCase(), bracket: Any)
-    val response: Option[JValue] = api.get("leaderboard/" + bracket)
+    val response: Option[JValue] = api.getDynamic("pvp-season/" + season + "/pvp-leaderboard/" + bracket)
     if (response.isEmpty) {
       logger.warn("Skipping {} import", bracket)
       return
     }
 
     val leaderboard: Array[LeaderboardEntry] =
-      response.get.extract[Leaderboard].rows.take(maxPerBracket.getOrElse(Int.MaxValue)).toArray
+      response.get.extract[Leaderboard].entries.take(maxPerBracket.getOrElse(Int.MaxValue)).toArray
 
     if (leaderboard.isEmpty) {
       logger.warn("Empty {} leaderboard", bracket)
@@ -65,7 +74,7 @@ object PlayerUpdater {
     }
 
     importPlayers(leaderboard, api)
-    updateLeaderboard(bracket, api.region, leaderboard)
+    // updateLeaderboard(bracket, api.region, leaderboard)
   }
 
   private def importPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Unit = {
@@ -77,8 +86,6 @@ object PlayerUpdater {
       return
     }
 
-    val classes: Map[Int, String] = getClasses(api)
-
     val columns: List[String] = List(
       "name",
       "class_id",
@@ -89,24 +96,22 @@ object PlayerUpdater {
       "guild",
       "gender",
       "achievement_points",
-      "honorable_kills",
-      "thumbnail")
+      "last_update")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
-      val spec = getSpec(classes, p)
       val guild = if (p.guild.isDefined) Option(p.guild.get.name) else Option.empty
+      val lastLogin = Timestamp.from(Instant.ofEpochMilli(p.last_login_timestamp))
 
       l.:+(List(
         p.name,
-        p.`class`,
-        spec,
-        p.faction,
-        p.race,
+        p.character_class.id,
+        p.active_spec.id,
+        p.factionId,
+        p.race.id,
         p.realmId,
         guild,
-        p.gender,
-        p.achievementPoints,
-        p.totalHonorableKills,
-        p.thumbnail))
+        p.genderId,
+        p.achievement_points,
+        lastLogin))
     }
 
     db.upsert("players", columns, rows, Option("players_name_realm_id_key"))
@@ -117,22 +122,19 @@ object PlayerUpdater {
     players.foreach(p => p.playerId = playerIds.getOrElse(p.name + p.realmId, noId))
     logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
 
-    insertPlayersTalents(players)
-    insertPlayersStats(players)
-    insertPlayersItems(players)
-    insertItems(players)
-    players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
+    insertPlayersTalents(players, api)
+    insertPlayersStats(players, api)
+    insertPlayersItems(players, api)
+    // players.grouped(achievGroupSize).foreach(insertPlayersAchievements)
   }
 
   private def getPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Array[Player] = {
     val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
-    val path: String = "character/%s/%s"
-    val field: String = "fields=talents,guild,achievements,stats,items"
+    val path: String = "%s/%s"
     val futures = leaderboard.grouped(groupSize).map(group => {
       Future[Array[Player]] {
         group.foldLeft(Array[Player]()) { (array, entry) =>
-          val response: Option[JValue] =
-            api.get(String.format(path, entry.realmSlug, entry.name), field)
+          val response: Option[JValue] = api.getProfile(entry.character.charPath)
           Try(array.:+(response.get.extract[Player])).getOrElse(array)
         }
       }
@@ -141,96 +143,59 @@ object PlayerUpdater {
     val players = futures.map(Await.result[Array[Player]](_, 3 hours)).flatten.toArray
     logger.debug("Found {} players", players.size)
 
-    val realmIds: Map[String, Int] = db.getRealmIds(api.region, false)
-    players.foreach(p => p.realmId = realmIds(p.realm))
+    val realmIds: Map[String, Int] = db.getRealmIds(api.region)
+    players.foreach(p => p.realmId = realmIds(p.realm.slug))
 
     return players
   }
 
-  private def getActiveTree(player: Player): Option[TalentTree] = {
-    return player.talents.filter(_.selected.getOrElse(false)).headOption
-  }
-
-  private def insertPlayersTalents(players: Array[Player]): Unit = {
+  private def insertPlayersTalents(players: Array[Player], api: ApiHandler): Unit = {
     val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
-      val activeTree = getActiveTree(p)
-      val id = p.playerId
-      if (activeTree.isDefined && id > -1) {
-        val talents = activeTree.get.talents.filterNot(_ == null)
-        l.:+(talents.map(t => (id, t.spell.id)))
-      } else {
-        l
-      }
+      val specs: PlayerSpecializations = api.getProfile(p.charPath + "/specializations").get.extract[PlayerSpecializations]
+      val activeSpec: PlayerSpecialization = specs.specializations.find(_.specialization.id == p.active_spec.id).get
+      l.:+(activeSpec.talents.map(t => (p.playerId, t.spell_tooltip.spell.get.id)))
     }.flatten
 
     db.insertPlayersTalents(rows)
   }
 
-  private def insertPlayersStats(players: Array[Player]): Unit = {
+  private def insertPlayersStats(players: Array[Player], api: ApiHandler): Unit = {
     val columns: List[String] = List("player_id", "strength", "agility", "intellect", "stamina",
       "critical_strike", "haste", "mastery", "versatility", "leech", "dodge", "parry")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
-      val id = p.playerId
-      val s = p.stats
-      l.:+(List(id, s.str, s.agi, s.int, s.sta, s.critRating, s.hasteRating, s.masteryRating,
-        s.versatility, s.leechRating, s.dodge, s.parry))
+      val s: Stats = api.getProfile(p.charPath + "/statistics").get.extract[Stats]
+      val critRating: Int = max(s.melee_crit.rating, s.spell_crit.rating)
+      val hasteRating: Int = max(s.melee_haste.rating, s.spell_haste.rating)
+      l.:+(List(p.playerId, s.strength.effective, s.agility.effective, s.intellect.effective, s.stamina.effective,
+        critRating, hasteRating, s.mastery.rating, s.versatility, s.lifesteal.rating, s.dodge.rating, s.parry.rating))
     }
 
     db.upsert("players_stats", columns, rows)
   }
 
-  private def insertPlayersItems(players: Array[Player]): Unit = {
-    val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped",
-      "head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist", "hands", "waist", "legs",
-      "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
-    val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
-      val id = p.playerId
-      val i = p.items
-      val shirtId = if (i.shirt.nonEmpty) i.shirt.get.id else null
-      val tabardId = if (i.tabard.nonEmpty) i.tabard.get.id else null
-      val offHandId = if (i.offHand.nonEmpty) i.offHand.get.id else null
-      l.:+(List(id, i.averageItemLevel, i.averageItemLevelEquipped, i.head.id, i.neck.id, i.shoulder.id,
-        i.back.id, i.chest.id, shirtId, tabardId, i.wrist.id, i.hands.id, i.waist.id, i.legs.id, i.feet.id,
-        i.finger1.id, i.finger2.id, i.trinket1.id, i.trinket2.id, i.mainHand.id, offHandId))
+  private def insertPlayersItems(players: Array[Player], api: ApiHandler): Unit = {
+    val slots: List[String] = List("head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist",
+      "hands", "waist", "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
+    val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped") ++ slots
+    val items: Map[Player, Items] =
+      players.toList.map(p => p -> api.getProfile(p.charPath + "/equipment").get.extract[Items]).toMap
+    val rows = items.foldLeft(List[List[Any]]()) { (l, entry) =>
+      val player: Player = entry._1
+      val items: Items = entry._2
+      val equippedItems: List[Any] = slots.map(slot => items.get(slot).getOrElse(null))
+      l.:+(List(player.playerId, player.average_item_level, player.equipped_item_level) ++ equippedItems)
     }
 
     db.upsert("players_items", columns, rows)
+
+    insertItems(items.values.toList)
   }
 
-  private def insertItems(players: Array[Player]): Unit = {
-    val items = players.foldLeft(HashSet[Item]()) { (s, p) =>
-      val i = p.items
-      if (i.shirt.nonEmpty) {
-        s.add(i.shirt.get)
-      }
-      if (i.tabard.nonEmpty) {
-        s.add(i.tabard.get)
-      }
-      if (i.offHand.nonEmpty) {
-        s.add(i.offHand.get)
-      }
-      s.add(i.head)
-      s.add(i.neck)
-      s.add(i.shoulder)
-      s.add(i.back)
-      s.add(i.chest)
-      s.add(i.wrist)
-      s.add(i.hands)
-      s.add(i.waist)
-      s.add(i.legs)
-      s.add(i.feet)
-      s.add(i.finger1)
-      s.add(i.finger2)
-      s.add(i.trinket1)
-      s.add(i.trinket2)
-      s.add(i.mainHand)
-
-      s
-    }
-
-    val columns: List[String] = List("id", "name", "icon")
-    val rows = items.foldLeft(List[List[Any]]()) { (l, i) =>
-      l.:+(List(i.id, i.name, i.icon))
+  private def insertItems(items: List[Items]): Unit = {
+    val equippedItem: List[EquippedItem] = items.map(_.equipped_items).flatten
+    val columns: List[String] = List("id", "name")
+    val rows = equippedItem.toSet.foldLeft(List[List[Any]]()) { (list, item) =>
+      list.:+(List(item.item.id, item.name))
     }
 
     db.upsert("items", columns, rows)
@@ -238,24 +203,24 @@ object PlayerUpdater {
 
   private def insertPlayersAchievements(players: Array[Player]): Unit = {
     val pvpIds: Set[Int] = getAchievementsIds()
-    val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
-      val id = p.playerId
-      if (id > -1) {
-        val timestamps: Array[Long] = p.achievements.achievementsCompletedTimestamp
-        var idx: Int = -1
-        l.:+(p.achievements.achievementsCompleted.toList.map { achievementId =>
-          idx += 1
-          if (pvpIds.contains(achievementId)) {
-            List(id, achievementId, timestamps(idx) / 1000)
-          } else {
-            List.empty
-          }
-        })
-      } else {
-        l
-      }
-    }.flatten.filter(!_.isEmpty)
-    db.insertPlayersAchievements(rows)
+    // val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
+    //   val id = p.playerId
+    //   if (id > -1) {
+    //     val timestamps: Array[Long] = p.achievements.achievementsCompletedTimestamp
+    //     var idx: Int = -1
+    //     l.:+(p.achievements.achievementsCompleted.toList.map { achievementId =>
+    //       idx += 1
+    //       if (pvpIds.contains(achievementId)) {
+    //         List(id, achievementId, timestamps(idx) / 1000)
+    //       } else {
+    //         List.empty
+    //       }
+    //     })
+    //   } else {
+    //     l
+    //   }
+    // }.flatten.filter(!_.isEmpty)
+    // db.insertPlayersAchievements(rows)
   }
 
   def getAchievementsIds(): Set[Int] = {
@@ -269,63 +234,72 @@ object PlayerUpdater {
 
   private def updateLeaderboard(bracket: String, region: String,
     leaderboard: Array[LeaderboardEntry]): Unit = {
-    val realmIds: Map[String, Int] = db.getRealmIds(region, true)
+    val realmIds: Map[String, Int] = db.getRealmIds(region)
     val rows = leaderboard.foldLeft(List[List[Any]]()) { (l, entry) =>
       l.:+(List(
-        entry.ranking,
+        entry.rank,
         entry.rating,
-        entry.seasonWins,
-        entry.seasonLosses,
-        entry.name,
-        realmIds(entry.realmSlug)))
+        entry.season_match_statistics.won,
+        entry.season_match_statistics.lost,
+        entry.character.name,
+        realmIds(entry.character.realm.slug)))
     }
 
     db.updateBracket(bracket, region, rows)
   }
 
-  private def getSpec(classes: Map[Int, String], player: Player): Option[Int] = {
-    val activeTree = getActiveTree(player)
+}
 
-    return if (activeTree.isDefined && activeTree.get.spec.name.isDefined) {
-      val specName: String = activeTree.get.spec.name.get
-      val className: String = classes(player.`class`)
-      return Option(NonApiData.specIds(className + specName))
+case class Id(id: Int)
+
+case class Seasons(seasons: List[Id], current_season: Id)
+case class Brackets(season: Id, leaderboards: List[KeyedValue])
+case class Leaderboard(season: Id, name: String, entries: List[LeaderboardEntry])
+case class LeaderboardEntry(character: Character, rank: Int, rating: Int, season_match_statistics: SeasonStats)
+case class SeasonStats(played: Int, won: Int, lost: Int)
+
+abstract class HasCharPath(name: String, realm: Realm) {
+  val charPath: String = realm.slug + "/" + URLEncoder.encode(name.toLowerCase, StandardCharsets.UTF_8.name)
+}
+case class Character(name: String, id: Int, realm: Realm) extends HasCharPath(name, realm)
+case class Player(id: Int, name: String, gender: Gender, faction: PlayerFaction, race: KeyedValue,
+  character_class: KeyedValue, active_spec: KeyedValue, realm: Realm, guild: Option[KeyedValue],
+  achievement_points: Int, average_item_level: Int, equipped_item_level: Int, last_login_timestamp: Long)
+  extends HasCharPath(name, realm) {
+    var realmId: Int = -1
+    var playerId: Int = -1
+    val factionId: Int = if ("HORDE".equals(faction.`type`)) 1 else 0
+    val genderId: Int = if ("FEMALE".equals(gender.`type`)) 1 else 0
+}
+
+case class PlayerFaction(`type`: String, name: String)
+case class Gender(`type`: String, name: String)
+case class Guild(name: String)
+case class CompletedAchievements(achievementsCompleted: Array[Int], achievementsCompletedTimestamp: Array[Long])
+
+case class PlayerSpecializations(specializations: List[PlayerSpecialization], active_specialization: KeyedValue,
+  character: Character)
+case class PlayerSpecialization(specialization: KeyedValue, talents: List[TalentListing], glyphs: List[KeyedValue],
+  pvp_talent_slots: List[PvpTalentSlot])
+case class PvpTalentSlot(selected: TalentListing, slot_number: Int)
+
+case class Stats(health: Int, power: Int, power_type: KeyedValue, strength: Stat, agility: Stat, intellect: Stat,
+  stamina: Stat, mastery: Rating, lifesteal: Rating, versatility: Int, avoidance: Rating, attack_power: Int,
+  dodge: Rating, parry: Rating, melee_crit: Rating, spell_crit: Rating, ranged_crit: Rating, melee_haste: Rating,
+  spell_haste: Rating, ranged_haste: Rating)
+case class Stat(base: Int, effective: Int)
+case class Rating(rating: Int, rating_bonus: Double, value: Option[Double])
+
+case class Items(character: Character, equipped_items: List[EquippedItem]) {
+  private val items: Map[String, EquippedItem] =
+    equipped_items.map(item => item.slot.`type`.toLowerCase.replaceAll("_", "") -> item).toMap
+  def get(slot: String): Option[Int] = {
+    if (items.contains(slot)) {
+      return Option(items.get(slot).get.item.id)
     } else {
       Option.empty
     }
   }
-
-  private def getClasses(api: ApiHandler): Map[Int, String] = {
-    val response: Option[JValue] = api.get("data/character/classes")
-    if (response.isEmpty) {
-      throw new IllegalStateException("Unable to create class ID map")
-    }
-
-    return response.get.extract[Classes].classes
-      .map(c => c.id -> slugify(c.name))
-      .toMap
-  }
-
 }
-
-case class Leaderboard(rows: List[LeaderboardEntry])
-case class LeaderboardEntry(ranking: Int, rating: Int, name: String, realmSlug: String,
-  specId: Int, seasonWins: Int, seasonLosses: Int)
-
-case class Player(name: String, realm: String, `class`: Int, race: Int, gender: Int,
-    achievementPoints: Int, thumbnail: String, faction: Int, totalHonorableKills: Int,
-    guild: Option[Guild], achievements: CompletedAchievements, talents: List[TalentTree],
-    stats: Stats, items: Items) {
-  var realmId: Int = -1
-  var playerId: Int = -1
-}
-case class Guild(name: String)
-case class CompletedAchievements(achievementsCompleted: Array[Int], achievementsCompletedTimestamp: Array[Long])
-case class TalentTree(selected: Option[Boolean], talents: List[Talent], spec: TalentSpec)
-case class Stats(str: Int, agi: Int, int: Int, sta: Int, critRating: Int, hasteRating: Int,
-  masteryRating: Int, versatility: Int, leechRating: Double, dodge: Double, parry: Double)
-case class Item(id: Int, name: String, icon: String)
-case class Items(averageItemLevel: Int, averageItemLevelEquipped: Int, head: Item, neck: Item,
-  shoulder: Item, back: Item, chest: Item, shirt: Option[Item], tabard: Option[Item], wrist: Item, hands: Item,
-  waist: Item, legs: Item, feet: Item, finger1: Item, finger2: Item, trinket1: Item, trinket2: Item,
-  mainHand: Item, offHand: Option[Item])
+case class EquippedItem(item: Id, slot: Slot, name: String)
+case class Slot(`type`: String, name: String)
