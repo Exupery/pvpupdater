@@ -221,7 +221,6 @@ class DbHandler {
     val sql: String = """
       INSERT INTO players_achievements (player_id, achievement_id, achieved_at)
       SELECT ?, ?, to_timestamp(?)
-      WHERE EXISTS (SELECT 1 FROM achievements WHERE id=?)
     """ + DO_NOTHING
 
     try {
@@ -230,7 +229,6 @@ class DbHandler {
         stmt.setObject(1, row(0))
         stmt.setObject(2, row(1))
         stmt.setObject(3, row(2))
-        stmt.setObject(4, row(1))
         stmt.addBatch()
       }
 
@@ -298,10 +296,9 @@ class DbHandler {
 
   /**
    * Returns a map of realm IDs for the given {@code region} using
-   * the realm slug as the key if {@code slug == true}, otherwise
-   * the name of the realm will be used.
+   * the realm slug as the key.
    */
-  def getRealmIds(region: String, slug: Boolean): Map[String, Int] = {
+  def getRealmIds(region: String): Map[String, Int] = {
     val sql: String = "SELECT name, slug, id FROM realms WHERE region=?"
     val db: Connection = DriverManager.getConnection(DB_URL)
 
@@ -309,7 +306,7 @@ class DbHandler {
       val stmt: PreparedStatement = db.prepareStatement(sql)
       stmt.setString(1, region.toUpperCase())
       val rs: ResultSet = stmt.executeQuery()
-      val col: String = if (slug) "slug" else "name"
+      val col: String = "slug"
       return Iterator.continually(rs.next()).takeWhile(identity)
         .map(_ => rs.getString(col) -> rs.getInt("id")).toMap
     } catch {

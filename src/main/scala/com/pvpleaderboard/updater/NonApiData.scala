@@ -8,43 +8,14 @@ object NonApiData {
     Faction(0, "Alliance"),
     Faction(1, "Horde"))
 
-  val specIds: Map[String, Int] = Map(
-    "mageArcane" -> 62,
-    "mageFire" -> 63,
-    "mageFrost" -> 64,
-    "paladinHoly" -> 65,
-    "paladinProtection" -> 66,
-    "paladinRetribution" -> 70,
-    "warriorArms" -> 71,
-    "warriorFury" -> 72,
-    "warriorProtection" -> 73,
-    "druidBalance" -> 102,
-    "druidFeral" -> 103,
-    "druidGuardian" -> 104,
-    "druidRestoration" -> 105,
-    "death-knightBlood" -> 250,
-    "death-knightFrost" -> 251,
-    "death-knightUnholy" -> 252,
-    "hunterBeast Mastery" -> 253,
-    "hunterMarksmanship" -> 254,
-    "hunterSurvival" -> 255,
-    "priestDiscipline" -> 256,
-    "priestHoly" -> 257,
-    "priestShadow" -> 258,
-    "rogueAssassination" -> 259,
-    "rogueOutlaw" -> 260,
-    "rogueSubtlety" -> 261,
-    "shamanElemental" -> 262,
-    "shamanEnhancement" -> 263,
-    "shamanRestoration" -> 264,
-    "warlockAffliction" -> 265,
-    "warlockDemonology" -> 266,
-    "warlockDestruction" -> 267,
-    "monkBrewmaster" -> 268,
-    "monkWindwalker" -> 269,
-    "monkMistweaver" -> 270,
-    "demon-hunterHavoc" -> 577,
-    "demon-hunterVengeance" -> 581)
+  def getAchievementsIds(): Set[Int] = {
+    return Set(
+      // Arena achievements
+      401, 405, 404, 1159, 1160, 1161, 5266, 5267, 876, 2090, 2093, 2092, 2091,
+      // RBG achievements
+      5329, 5326, 5339, 5353, 5341, 5355, 5343, 5356, 6942, 6941
+      )
+  }
 
   def slugify(str: String): String = {
     return str.toLowerCase().replaceAll(" ", "-")

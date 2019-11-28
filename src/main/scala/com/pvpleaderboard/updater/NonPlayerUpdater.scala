@@ -49,7 +49,7 @@ object NonPlayerUpdater {
     logger.debug("Found {} {} realms", realms.size, region)
     val columns: List[String] = List("slug", "name", "region")
     val rows = realms.foldLeft(List[List[Any]]()) { (l, r) =>
-      l.:+(List(r.slug, r.name, region))
+      l.:+(List(r.slug, r.name.get, region))
     }
     db.upsert("realms", columns, rows, Option("realms_slug_region_key"))
   }
@@ -73,23 +73,7 @@ object NonPlayerUpdater {
   }
 
   private def importAchievements(api: ApiHandler): Unit = {
-    val response: Option[JValue] = api.getStatic("achievement-category/index")
-    if (response.isEmpty) {
-      logger.warn("Skipping achievements import")
-      return
-    }
-
-    val categoriesToKeep: Set[String] = Set("Arena", "Rated Battleground", "Feats of Strength")
-    val achievementCategories: List[KeyedValue] = response.get.extract[AchievementCategories].categories
-    val achievementCategoryIds: List[Int] = achievementCategories
-      .filter(g => categoriesToKeep.contains(g.name))
-      .map(_.id)
-      .toList
-
-    val achievementIds: List[Int] = achievementCategoryIds
-      .map(id => api.getStatic("achievement-category/" + id).get.extract[AchievementKeys].achievements)
-      .flatten
-      .map(_.id)
+    val achievementIds: Set[Int] = NonApiData.getAchievementsIds()
 
     val achievements: List[Achievement] = achievementIds
       .map(id => api.getStatic("achievement/" + id).get.extract[Achievement])
@@ -213,7 +197,7 @@ case class Asset(key: String, value: String)
 case class Faction(id: Int, name: String)
 
 case class Realms(realms: List[Realm])
-case class Realm(slug: String, name: String)
+case class Realm(slug: String, name: Option[String])
 
 case class Races(races: List[Race])
 case class Race(id: Int, name: String)
@@ -229,7 +213,7 @@ case class Specialization(id: Int, playable_class: KeyedValue, name: String, gen
 
 case class TalentTier(level: Int, talents: List[TalentListing])
 case class TalentListing(talent: KeyedValue, spell_tooltip: SpellTooltip)
-case class SpellTooltip(description: String, cast_time: String)
+case class SpellTooltip(spell: Option[KeyedValue], description: String, cast_time: String)
 case class Talent(tier: Int, column: Int, spell: TalentSpell, spec: TalentSpec)
 case class TalentSpell(id: Int, name: String, description: String, icon: String)
 case class TalentSpec(name: Option[String])

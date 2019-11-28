@@ -183,3 +183,8 @@ END; $proc$;
 ALTER TABLE realms DROP COLUMN battlegroup;
 ALTER TABLE realms DROP COLUMN timezone;
 ALTER TABLE realms DROP COLUMN type;
+
+ALTER TABLE players DROP COLUMN honorable_kills;
+
+ALTER TABLE items DROP COLUMN icon;
+ALTER TABLE achievements DROP COLUMN icon;
