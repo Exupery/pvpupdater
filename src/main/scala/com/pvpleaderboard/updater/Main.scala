@@ -11,7 +11,8 @@ object Main {
     val apis: List[ApiHandler] = List(new ApiHandler(Region.US), new ApiHandler(Region.EU))
     NonPlayerUpdater.update(apis)
     PlayerUpdater.update(apis)
-    // TODO CLEANUP
+    val db: DbHandler = new DbHandler()
+    db.purgeStale()
     val end = System.currentTimeMillis() / 1000
     val elapsed = end - start
     val durationMessage = if (elapsed < 180) {

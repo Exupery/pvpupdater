@@ -174,8 +174,7 @@ object PlayerUpdater {
   }
 
   private def insertPlayersItems(players: Array[Player], api: ApiHandler): Unit = {
-    val slots: List[String] = List("head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist",
-      "hands", "waist", "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
+    val slots: List[String] = NonApiData.itemSlots
     val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped") ++ slots
     val items: Map[Player, Items] =
       players.toList.map(p => p -> api.getProfile(p.charPath + "/equipment").get.extract[Items]).toMap

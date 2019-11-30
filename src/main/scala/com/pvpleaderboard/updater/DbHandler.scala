@@ -261,6 +261,82 @@ class DbHandler {
     }
   }
 
+  def purgeStale(): Unit = {
+    purgeStalePlayerInfo()
+    purgeStaleItems()
+  }
+
+  private def purgeStalePlayerInfo(): Unit = {
+    logger.info("Deleting data for players no longer on a leaderboard")
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    val sql: String = "DELETE FROM %s WHERE %s NOT IN (SELECT player_id FROM leaderboards)"
+    val playerTables = List("players_achievements", "players_talents", "players_stats", "players_items", "players")
+
+    try {
+      playerTables.foreach { table =>
+        val idCol: String = if (table.equals("players")) "id" else "player_id"
+        val stmt: PreparedStatement = db.prepareStatement(String.format(sql, table, idCol))
+        val deleted: Int = stmt.executeUpdate()
+        logger.info("Deleted {} rows from {}", deleted, table)
+        stmt.close()
+      }
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+  }
+
+  private def purgeStaleItems(): Unit = {
+    logger.info("Deleting items no longer equipped by any players")
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    var sql: String = "DELETE FROM items WHERE id NOT IN ("
+
+    try {
+      var first: Boolean = true
+      getEquippedItems.foreach { id =>
+        if (!first) {
+          sql += ","
+        }
+        sql += id
+        first = false
+      }
+      sql += ")"
+
+      val stmt: PreparedStatement = db.prepareStatement(sql)
+      val deleted: Int = stmt.executeUpdate()
+      logger.info("Deleted {} rows from items", deleted)
+      stmt.close()
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+  }
+
+  private def getEquippedItems(): Set[Int] = {
+    val columns: List[String] = NonApiData.itemSlots
+    val sql: String = "SELECT DISTINCT(%1$s) FROM players_items WHERE %1$s IS NOT NULL"
+    val db: Connection = DriverManager.getConnection(DB_URL)
+
+    try {
+      val ids = columns.map(col => {
+        val stmt: PreparedStatement = db.prepareStatement(String.format(sql, col))
+        val rs: ResultSet = stmt.executeQuery()
+        Iterator.continually(rs.next()).takeWhile(identity).map(_ => rs.getInt(col))
+      }).flatten.toSet
+      return ids
+    } catch {
+      case sqle: SQLException => logSqlException(sqle)
+    } finally {
+      db.close()
+    }
+
+    return Set.empty
+  }
+
   def getPlayerIds(players: Array[(String, Int)]): Map[String, Int] = {
     logger.debug("Getting player IDs for {} players", players.size)
     val sql: String = "SELECT id FROM players WHERE name=? AND realm_id=?"

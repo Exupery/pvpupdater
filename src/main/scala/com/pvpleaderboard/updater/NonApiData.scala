@@ -8,6 +8,9 @@ object NonApiData {
     Faction(0, "Alliance"),
     Faction(1, "Horde"))
 
+  val itemSlots: List[String] = List("head", "neck", "shoulder", "back", "chest", "shirt", "tabard", "wrist",
+    "hands", "waist", "legs", "feet", "finger1", "finger2", "trinket1", "trinket2", "mainhand", "offhand")
+
   def getAchievementsIds(): Set[Int] = {
     return Set(
       // Arena achievements
