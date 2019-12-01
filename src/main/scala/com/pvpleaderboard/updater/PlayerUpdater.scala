@@ -151,9 +151,15 @@ object PlayerUpdater {
 
   private def insertPlayersTalents(players: Array[Player], api: ApiHandler): Unit = {
     val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
-      val specs: PlayerSpecializations = api.getProfile(p.charPath + "/specializations").get.extract[PlayerSpecializations]
-      val activeSpec: PlayerSpecialization = specs.specializations.find(_.specialization.id == p.active_spec.id).get
-      l.:+(activeSpec.talents.map(t => (p.playerId, t.spell_tooltip.spell.get.id)))
+      val response: Option[JValue] = api.getProfile(p.charPath + "/specializations")
+      if (response.isDefined) {
+        val specs: PlayerSpecializations = response.get.extract[PlayerSpecializations]
+        val activeSpec: PlayerSpecialization =
+          specs.specializations.find(_.specialization.id == p.active_spec.id).get
+        l.:+(activeSpec.talents.map(t => (p.playerId, t.spell_tooltip.spell.get.id)))
+      } else {
+        l
+      }
     }.flatten
 
     db.insertPlayersTalents(rows)
@@ -163,11 +169,17 @@ object PlayerUpdater {
     val columns: List[String] = List("player_id", "strength", "agility", "intellect", "stamina",
       "critical_strike", "haste", "mastery", "versatility", "leech", "dodge", "parry")
     val rows = players.foldLeft(List[List[Any]]()) { (l, p) =>
-      val s: Stats = api.getProfile(p.charPath + "/statistics").get.extract[Stats]
-      val critRating: Int = max(s.melee_crit.rating, s.spell_crit.rating)
-      val hasteRating: Int = max(s.melee_haste.rating, s.spell_haste.rating)
-      l.:+(List(p.playerId, s.strength.effective, s.agility.effective, s.intellect.effective, s.stamina.effective,
-        critRating, hasteRating, s.mastery.rating, s.versatility, s.lifesteal.rating, s.dodge.rating, s.parry.rating))
+      val response: Option[JValue] = api.getProfile(p.charPath + "/statistics")
+      if (response.isDefined) {
+        val s: Stats = response.get.extract[Stats]
+        val critRating: Int = max(s.melee_crit.rating, s.spell_crit.rating)
+        val hasteRating: Int = max(s.melee_haste.rating, s.spell_haste.rating)
+        l.:+(List(p.playerId, s.strength.effective, s.agility.effective, s.intellect.effective,
+          s.stamina.effective, critRating, hasteRating, s.mastery.rating, s.versatility,
+          s.lifesteal.rating, s.dodge.rating, s.parry.rating))
+      } else {
+        l
+      }
     }
 
     db.upsert("players_stats", columns, rows)
@@ -176,8 +188,11 @@ object PlayerUpdater {
   private def insertPlayersItems(players: Array[Player], api: ApiHandler): Unit = {
     val slots: List[String] = NonApiData.itemSlots
     val columns: List[String] = List("player_id", "average_item_level", "average_item_level_equipped") ++ slots
-    val items: Map[Player, Items] =
-      players.toList.map(p => p -> api.getProfile(p.charPath + "/equipment").get.extract[Items]).toMap
+    val items: Map[Player, Items] = players.toList
+      .map(p => p -> api.getProfile(p.charPath + "/equipment"))
+      .filter(_._2.isDefined)
+      .map(t => t._1 -> t._2.get.extract[Items])
+      .toMap
     val rows = items.foldLeft(List[List[Any]]()) { (l, entry) =>
       val player: Player = entry._1
       val items: Items = entry._2
@@ -203,13 +218,15 @@ object PlayerUpdater {
   private def insertPlayersAchievements(players: Array[Player], api: ApiHandler): Unit = {
     val pvpIds: Set[Int] = NonApiData.getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
-      val achievements: List[PlayerAchievement] =
-        api.getProfile(p.charPath + "/achievements").get.extract[Achievements].achievements
-        .filter(a => pvpIds.contains(a.id))
-        .filter(_.completed_timestamp.isDefined)
-      l.:+(achievements.map { achievement =>
-        List(p.playerId, achievement.id, achievement.completed_timestamp.get / 1000)
-      })
+      val response: Option[JValue] = api.getProfile(p.charPath + "/achievements")
+      if (response.isDefined) {
+        val achievements: List[PlayerAchievement] = response.get.extract[Achievements].achievements
+          .filter(a => pvpIds.contains(a.id))
+          .filter(_.completed_timestamp.isDefined)
+        l.:+(achievements.map(a => List(p.playerId, a.id, a.completed_timestamp.get / 1000)))
+      } else {
+        l
+      }
     }.flatten
 
     db.insertPlayersAchievements(rows)
