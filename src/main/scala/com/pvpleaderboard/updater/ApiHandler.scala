@@ -24,38 +24,27 @@ class ApiHandler(val region: String) {
 
   private val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
-  def getStatic(path: String, params: String = ""): Option[JValue] = {
+  def getStatic(path: String): Option[JValue] = {
     val namespace: String = "static-" + region
     val dataPath = "/data/wow/" + path
-    return get(dataPath, namespace, params)
+    return get(dataPath, namespace)
   }
 
-  def getDynamic(path: String, params: String = ""): Option[JValue] = {
+  def getDynamic(path: String): Option[JValue] = {
     val namespace: String = "dynamic-" + region
     val dataPath = "/data/wow/" + path
-    return get(dataPath, namespace, params)
+    return get(dataPath, namespace)
   }
 
-  def getProfile(path: String, params: String = ""): Option[JValue] = {
+  def getProfile(path: String): Option[JValue] = {
     val namespace: String = "profile-" + region
     val profilePath = "/profile/wow/character/" + path
-    return get(profilePath, namespace, params)
+    return get(profilePath, namespace)
   }
 
-  def get(path: String, params: String = ""): Option[JValue] = {
-    // TODO DELETE AFTER PLAYER DATA CONVERTED TO getProfile
-    return getProfile(path, params)
-  }
-
-  private def get(path: String, namespace: String, params: String): Option[JValue] = {
+  private def get(path: String, namespace: String): Option[JValue] = {
     val requiredParams: String = String.format("?locale=en_US&access_token=%s&namespace=%s", TOKEN, namespace)
-    val allParams: String = if (params.isEmpty()) {
-      requiredParams
-    } else {
-      String.format("%s&%s", requiredParams, params)
-    }
-
-    val url: String = BASE_URI + path + allParams
+    val url: String = BASE_URI + path + requiredParams
     for (c <- 1 to 3) {
       try {
         val response: String = Source.fromURL(url).mkString
