@@ -6,9 +6,8 @@ import java.sql.Timestamp
 import java.time.Instant
 
 import scala.collection.mutable.HashSet
-import scala.concurrent.Await
+import scala.concurrent.{ blocking, Await, Future }
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
 import scala.math.max
@@ -73,7 +72,18 @@ object PlayerUpdater {
       return
     }
 
-    importPlayers(leaderboard, api)
+    val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
+    val futures = leaderboard.grouped(groupSize).map(group => {
+      Future {
+        blocking {
+          importPlayers(group, api)
+        }
+      }
+    }).toList
+    logger.debug("Waiting on {} futures", futures.size)
+    futures.map(Await.result[Unit](_, 3 hours))
+    logger.debug("All {} {} futures complete", api.region.toUpperCase(), bracket: Any)
+
     updateLeaderboard(bracket, leaderboard, api)
   }
 
@@ -129,18 +139,11 @@ object PlayerUpdater {
   }
 
   private def getPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Array[Player] = {
-    val groupSize: Int = max(leaderboard.size / numThreads, numThreads)
     val path: String = "%s/%s"
-    val futures = leaderboard.grouped(groupSize).map(group => {
-      Future[Array[Player]] {
-        group.foldLeft(Array[Player]()) { (array, entry) =>
-          val response: Option[JValue] = api.getProfile(entry.character.charPath)
-          Try(array.:+(response.get.extract[Player])).getOrElse(array)
-        }
-      }
-    }).toList
-    logger.debug("Waiting on {} futures", futures.size)
-    val players = futures.map(Await.result[Array[Player]](_, 3 hours)).flatten.toArray
+    val players = leaderboard.foldLeft(Array[Player]()) { (array, entry) =>
+      val response: Option[JValue] = api.getProfile(entry.character.charPath)
+      Try(array.:+(response.get.extract[Player])).getOrElse(array)
+    }
     logger.debug("Found {} players", players.size)
 
     val realmIds: Map[String, Int] = db.getRealmIds(api.region)
