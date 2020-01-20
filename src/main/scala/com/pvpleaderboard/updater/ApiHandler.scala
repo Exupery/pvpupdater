@@ -52,12 +52,11 @@ class ApiHandler(val region: String) {
         return Option(parse(response))
       } catch {
         case p: ParseException => {
-          logger.error("Unable to parse response: {}", p.toString())
-          return Option.empty
+          logger.error("Unable to parse response from: {}", p.toString() + " " + path) // Yuck, but makes compiler happy
         }
         case io: IOException => {
-          /* Do not log for failures on character endpoints - many of
-           * these 404 due to character transfer/rename/deletion/etc */
+          /* Do not log for all failures on character endpoints - many of
+           * these are due to character transfer/rename/deletion/etc */
           if (c == 3 && !io.toString().contains("/character/")) {
             logger.error("GET failed: {}", io.toString())
           }
