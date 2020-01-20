@@ -9,3 +9,4 @@ bin/
 *.class
 .bloop/
 .metals/
+metals.sbt
