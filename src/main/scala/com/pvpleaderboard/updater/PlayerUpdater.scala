@@ -81,7 +81,7 @@ object PlayerUpdater {
       }
     }).toList
     logger.debug("Waiting on {} futures", futures.size)
-    futures.map(Await.result[Unit](_, 3 hours))
+    futures.map(Await.result[Unit](_, 1 hours))
     logger.debug("All {} {} futures complete", api.region.toUpperCase(), bracket: Any)
 
     updateLeaderboard(bracket, leaderboard, api)
