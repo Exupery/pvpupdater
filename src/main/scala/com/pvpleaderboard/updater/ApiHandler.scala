@@ -36,6 +36,12 @@ class ApiHandler(val region: String) {
     return get(dataPath, namespace)
   }
 
+  def getMedia(path: String): Option[JValue] = {
+    val namespace: String = "static-" + region
+    val dataPath = "/data/wow/media/" + path
+    return get(dataPath, namespace)
+  }
+
   def getProfile(path: String): Option[JValue] = {
     val namespace: String = "profile-" + region
     val profilePath = "/profile/wow/character/" + path

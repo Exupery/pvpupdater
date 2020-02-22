@@ -159,7 +159,7 @@ object PlayerUpdater {
         val specs: PlayerSpecializations = response.get.extract[PlayerSpecializations]
         val activeSpec: PlayerSpecialization =
           specs.specializations.find(_.specialization.id == p.active_spec.id).get
-        l.:+(activeSpec.talents.map(t => (p.playerId, t.spell_tooltip.spell.get.id)))
+        l.:+(activeSpec.talents.map(t => (p.playerId, t.talent.id)))
       } else {
         l
       }

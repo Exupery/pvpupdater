@@ -116,7 +116,7 @@ object NonPlayerUpdater {
       .toList
 
     insertSpecs(api, specializations)
-    // insertTalents(api, specializations) // TODO TALENT INFO NOT YET FULLY AVAILABLE IN NEW API
+    insertTalents(api, specializations)
   }
 
   private def insertSpecs(api: ApiHandler, specializations: List[Specialization]): Unit = {
@@ -166,7 +166,6 @@ object NonPlayerUpdater {
 
       l.:+(talents.foldLeft(List[List[Any]]()) { (list, talentListing) =>
         val talentId: Int = talentListing.talent.id
-        // TODO /wow/data/talents NOT YET IMPLEMENTED
         val talent: Talent = api.getStatic("talent/" + talentId).get.extract[Talent]
         list.:+(List(
           talentId,
@@ -174,13 +173,21 @@ object NonPlayerUpdater {
           specId,
           talentListing.talent.name,
           talentListing.spell_tooltip.description,
-          talent.spell.icon,  // TODO GET FROM /wow/data/talents RESPONSE
-          talent.tier,        // TODO GET FROM /wow/data/talents RESPONSE
-          talent.column))     // TODO GET FROM /wow/data/talents RESPONSE
+          getSpellIcon(api, talent.spell.id),
+          talent.tier_index,
+          talent.column_index))
       })
     }.flatten
     logger.debug("Found {} talents", rows.size)
     db.insertTalents(rows)
+  }
+
+  private def getSpellIcon(api: ApiHandler, spellId: Int): String = {
+    val media: Media = api.getMedia("spell/" + spellId).get.extract[Media]
+    val icon: Asset = media.assets.filter(_.key.equals("icon")).head
+    val start: Int = icon.value.lastIndexOf("/") + 1
+    val end: Int = icon.value.lastIndexOf(".")
+    return icon.value.substring(start, end)
   }
 
   private def importPvPTalents(): Unit = {
@@ -214,6 +221,6 @@ case class Specialization(id: Int, playable_class: KeyedValue, name: String, gen
 case class TalentTier(level: Int, talents: List[TalentListing])
 case class TalentListing(talent: KeyedValue, spell_tooltip: SpellTooltip)
 case class SpellTooltip(spell: Option[KeyedValue], description: String, cast_time: String)
-case class Talent(tier: Int, column: Int, spell: TalentSpell, spec: TalentSpec)
-case class TalentSpell(id: Int, name: String, description: String, icon: String)
-case class TalentSpec(name: Option[String])
+case class Talent(id: Int, tier_index: Int, column_index: Int, description: String, spell: KeyedValue, playable_class: KeyedValue)
+case class Spell(id: Int, media: SpellMedia)
+case class SpellMedia(id: Int, key: Key)
