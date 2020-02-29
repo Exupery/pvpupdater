@@ -102,8 +102,8 @@ class DbHandler {
     db.setAutoCommit(false)
 
     val sql: String = """
-      INSERT INTO talents (spell_id, class_id, spec_id, name, description, icon, tier, col)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+      INSERT INTO talents (id, spell_id, class_id, spec_id, name, description, icon, tier, col)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET spec_id=0"""
     val deleteSql: String = "TRUNCATE TABLE talents CASCADE"
 
     try {
@@ -136,10 +136,7 @@ class DbHandler {
     val deleteSql: String = "DELETE FROM players_talents WHERE player_id=?"
 
     val sql: String = """
-      INSERT INTO players_talents (player_id, talent_id)
-      SELECT ?, talents.id FROM players JOIN talents ON players.class_id=talents.class_id
-      WHERE players.id=? AND (players.spec_id=talents.spec_id OR talents.spec_id=0)
-      AND talents.spell_id=?
+      INSERT INTO players_talents (player_id, talent_id) VALUES (?, ?)
     """ + DO_NOTHING
 
     try {
@@ -149,8 +146,7 @@ class DbHandler {
         val playerId: Int = t._1
 
         stmt.setInt(1, playerId)
-        stmt.setInt(2, playerId)
-        stmt.setInt(3, t._2)
+        stmt.setInt(2, t._2)
         deleteStmt.setInt(1, playerId)
 
         stmt.addBatch()

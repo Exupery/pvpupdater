@@ -151,6 +151,7 @@ object NonPlayerUpdater {
 
   private def insertTalents(api: ApiHandler, specializations: List[Specialization]): Unit = {
     val columns: List[String] = List(
+      "id",
       "spell_id",
       "class_id",
       "spec_id",
@@ -169,6 +170,7 @@ object NonPlayerUpdater {
         val talent: Talent = api.getStatic("talent/" + talentId).get.extract[Talent]
         list.:+(List(
           talentId,
+          talent.spell.id,
           classId,
           specId,
           talentListing.talent.name,
