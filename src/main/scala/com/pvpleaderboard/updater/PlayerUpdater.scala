@@ -221,18 +221,34 @@ object PlayerUpdater {
   private def insertPlayersAchievements(players: Array[Player], api: ApiHandler): Unit = {
     val pvpIds: Set[Int] = NonApiData.getAchievementsIds()
     val rows = players.foldLeft(List[List[List[Any]]]()) { (l, p) =>
-      val response: Option[JValue] = api.getProfile(p.charPath + "/achievements")
-      if (response.isDefined) {
-        val achievements: List[PlayerAchievement] = response.get.extract[Achievements].achievements
-          .filter(a => pvpIds.contains(a.id))
-          .filter(_.completed_timestamp.isDefined)
-        l.:+(achievements.map(a => List(p.playerId, a.id, a.completed_timestamp.get / 1000)))
+      val playerAchievements: List[List[Any]] = getPlayerAchievements(p, pvpIds, api)
+      if (playerAchievements.nonEmpty) {
+        l.:+(playerAchievements)
       } else {
         l
       }
     }.flatten
 
     db.insertPlayersAchievements(rows)
+  }
+
+  private def getPlayerAchievements(player: Player, pvpIds: Set[Int], api: ApiHandler): List[List[Any]] = {
+    /* Workaround for achievements endpoint bug that occasionally returns invalid JSON */
+    for (c <- 1 to 3) {
+      try {
+        val response: Option[JValue] = api.getProfile(player.charPath + "/achievements")
+        if (response.isDefined) {
+          val achievements: List[PlayerAchievement] = response.get.extract[Achievements].achievements
+              .filter(a => pvpIds.contains(a.id))
+              .filter(_.completed_timestamp.isDefined)
+          return achievements.map(a => List(player.playerId, a.id, a.completed_timestamp.get / 1000))
+        }
+      } catch {
+        case m: net.liftweb.json.MappingException => logger.warn("Invalid JSON for {}", player.charPath)
+        case _: Throwable => return List()
+      }
+    }
+    return List()
   }
 
   private def updateLeaderboard(bracket: String, leaderboard: Array[LeaderboardEntry], api: ApiHandler): Unit = {
