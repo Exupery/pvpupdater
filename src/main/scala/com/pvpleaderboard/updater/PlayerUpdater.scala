@@ -38,9 +38,6 @@ object PlayerUpdater {
   private val DEFAULT_NUM_THREADS: Int = 5
   private val numThreads: Int = Try(sys.env("NUM_THREADS").toInt).getOrElse(DEFAULT_NUM_THREADS)
 
-  private val DEFAULT_ACHIEV_SIZE: Int = 500
-  private val achievGroupSize: Int = Try(sys.env("ACHIEV_SIZE").toInt).getOrElse(DEFAULT_ACHIEV_SIZE)
-
   def update(apis: List[ApiHandler]): Unit = {
     logger.info("Updating player data")
 
@@ -130,12 +127,13 @@ object PlayerUpdater {
     val noId: Int = -1
     logger.debug("Mapping {} player IDs", playerIds.size)
     players.foreach(p => p.playerId = playerIds.getOrElse(p.name + p.realmId, noId))
-    logger.debug("Mapped {} player IDs", players.filter(_.playerId > noId).size)
+    val validPlayers: Array[Player] = players.filter(_.playerId != noId)
+    logger.debug("Mapped {} player IDs", validPlayers.size)
 
-    insertPlayersTalents(players, api)
-    insertPlayersStats(players, api)
-    insertPlayersItems(players, api)
-    players.filter(_.playerId != noId).grouped(achievGroupSize).foreach(group => insertPlayersAchievements(group, api))
+    insertPlayersTalents(validPlayers, api)
+    insertPlayersStats(validPlayers, api)
+    insertPlayersItems(validPlayers, api)
+    insertPlayersAchievements(validPlayers, api)
   }
 
   private def getPlayers(leaderboard: Array[LeaderboardEntry], api: ApiHandler): Array[Player] = {
