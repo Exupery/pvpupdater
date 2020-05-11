@@ -192,6 +192,7 @@ object PlayerUpdater {
     val items: Map[Player, Items] = players.toList
       .map(p => p -> api.getProfile(p.charPath + "/equipment"))
       .filter(_._2.isDefined)
+      .filter(t => Try(t._2.get.extract[Items]).isSuccess)
       .map(t => t._1 -> t._2.get.extract[Items])
       .toMap
     val rows = items.foldLeft(List[List[Any]]()) { (l, entry) =>
