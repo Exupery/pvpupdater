@@ -231,20 +231,17 @@ object PlayerUpdater {
   }
 
   private def getPlayerAchievements(player: Player, pvpIds: Set[Int], api: ApiHandler): List[List[Any]] = {
-    /* Workaround for achievements endpoint bug that occasionally returns invalid JSON */
-    for (c <- 1 to 3) {
-      try {
-        val response: Option[JValue] = api.getProfile(player.charPath + "/achievements")
-        if (response.isDefined) {
-          val achievements: List[PlayerAchievement] = response.get.extract[Achievements].achievements
-              .filter(a => pvpIds.contains(a.id))
-              .filter(_.completed_timestamp.isDefined)
-          return achievements.map(a => List(player.playerId, a.id, a.completed_timestamp.get / 1000))
-        }
-      } catch {
-        case m: net.liftweb.json.MappingException => logger.warn("Invalid JSON for {}", player.charPath)
-        case _: Throwable => return List()
+    try {
+      val response: Option[JValue] = api.getProfile(player.charPath + "/achievements")
+      if (response.isDefined) {
+        val achievements: List[PlayerAchievement] = response.get.extract[Achievements].achievements
+            .filter(a => pvpIds.contains(a.id))
+            .filter(_.completed_timestamp.isDefined)
+        return achievements.map(a => List(player.playerId, a.id, a.completed_timestamp.get / 1000))
       }
+    } catch {
+      case m: net.liftweb.json.MappingException => logger.warn("Invalid JSON for {}", player.charPath)
+      case t: Throwable => logger.error("Unable to map achievements for " + player.charPath + " due to {}", t.toString)
     }
     return List()
   }
