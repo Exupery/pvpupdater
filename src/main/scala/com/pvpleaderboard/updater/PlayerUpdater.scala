@@ -153,7 +153,7 @@ object PlayerUpdater {
   private def insertPlayersTalents(players: Array[Player], api: ApiHandler): Unit = {
     val rows = players.foldLeft(List[List[(Int, Int)]]()) { (l, p) =>
       val response: Option[JValue] = api.getProfile(p.charPath + "/specializations")
-      if (response.isDefined) {
+      if (response.isDefined && Try(response.get.extract[PlayerSpecializations]).isSuccess) {
         val specs: PlayerSpecializations = response.get.extract[PlayerSpecializations]
         val activeSpec: PlayerSpecialization =
           specs.specializations.find(_.specialization.id == p.active_spec.id).get
